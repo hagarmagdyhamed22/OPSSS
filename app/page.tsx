@@ -1167,9 +1167,7 @@ export default function App() {
         </header>
         <main className="flex-1 flex flex-col items-center justify-center p-6 max-w-5xl mx-auto w-full space-y-8">
           <div className="text-center space-y-3 max-w-2xl">
-            <span className="bg-indigo-100 text-[#45499F] font-extrabold text-[10px] px-3 py-1 rounded-full uppercase tracking-widest border border-indigo-200">
-              Welcome Portal - Fall 2026
-            </span>
+      
             <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
               Academic Support & Advising System
             </h2>
