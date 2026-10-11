@@ -8,9 +8,8 @@ import {
   Plus, 
   ShieldCheck,
   GraduationCap,
-  CalendarDays,
+  HeartHandshake,
   ArrowLeft,
-  KeyRound,
   UserCheck,
   Clock,
   CheckCircle2,
@@ -28,10 +27,8 @@ import {
   Trash2,
   X,
   Save,
-  LayoutDashboard,
-  HeartHandshake
+  LayoutDashboard
 } from 'lucide-react';
-import ChangePasswordModal from './ChangePasswordModal';
 export default function App() {
   const [mounted, setMounted] = useState(false);
   const [currentView, setCurrentView] = useState('landing');
@@ -114,7 +111,6 @@ export default function App() {
   
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [attachedFile, setAttachedFile] = useState(null);
-  const [uploadDocumentType, setUploadDocumentType] = useState('student');
   const [evaluatingStudentId, setEvaluatingStudentId] = useState(null);
   const [reportSelectedStudentId, setReportSelectedStudentId] = useState('');
   const [docTeamSearchQuery, setDocTeamSearchQuery] = useState('');
@@ -548,8 +544,6 @@ export default function App() {
   const outOfProbationSectionStudents = currentAdvisorStudents.filter(s => s.level.startsWith('out of'));
   
   const followUpsTodayCount = currentAdvisorStudents.filter(s => s.nextFollowUp === todayDateStr).length;
-  const outOfProbationFollowUpsTodayCount = outOfProbationSectionStudents.filter(s => s.nextFollowUp === todayDateStr).length;
-  
   const outOfProbationCount = outOfProbationSectionStudents.length;
   
   const selectedStudentObj = allProbationStudents.find(s => s.id === selectedStudentId) || allProbationStudents[0];
@@ -1282,7 +1276,7 @@ export default function App() {
                       onChange={(e) => setAdvisorPassword(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 pl-10 text-xs font-semibold text-slate-800 outline-none focus:border-[#45499F]"
                     />
-                    <KeyRound size={16} className="absolute left-3.5 top-3.5 text-slate-400" />
+                    <Users size={16} className="absolute left-3.5 top-3.5 text-slate-400" />
                   </div>
                 </div>
                 <button type="submit" style={{ backgroundColor: '#45499F' }} className="w-full text-white font-bold text-xs py-3.5 rounded-xl shadow-md hover:opacity-95 transition-all mt-2 cursor-pointer">
@@ -1367,7 +1361,7 @@ export default function App() {
                       onChange={(e) => setDocPasswordInput(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 pl-10 text-xs font-semibold text-slate-800 outline-none focus:border-blue-600"
                     />
-                    <KeyRound size={16} className="absolute left-3.5 top-3.5 text-slate-400" />
+                    <Users size={16} className="absolute left-3.5 top-3.5 text-slate-400" />
                   </div>
                 </div>
                 <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-3.5 rounded-xl shadow-md transition-all mt-2 cursor-pointer">
@@ -1478,8 +1472,7 @@ export default function App() {
                 { name: 'Dashboard', icon: LayoutDashboard },
                 { name: 'Student Preview', icon: Users },
                 { name: 'Out of Probation Students', icon: CheckCircle2 },
-                { name: 'Student Reports', icon: BarChart3 },
-                { name: 'Change Password', icon: KeyRound },
+                { name: 'Student Reports', icon: BarChart3 }
               ].map((item) => {
                 const Icon = item.icon;
                 const isActive = activeNav === item.name;
@@ -3039,20 +3032,6 @@ export default function App() {
                     )}
                   </div>
                 </div>
-              </div>
-            )}
-            {activeNav === 'Change Password' && (
-              <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6 max-w-xl">
-                <div>
-                  <h3 className="text-xl font-bold text-slate-900">Advisor Account Security</h3>
-                  <p className="text-xs text-slate-500 mt-1">Update your account password securely.</p>
-                </div>
-                <ChangePasswordModal 
-                  currentAdvisor={selectedAdvisor} 
-                  onPasswordChanged={(newPass) => {
-                    setAdvisorPasswords(prev => ({ ...prev, [selectedAdvisor]: newPass }));
-                  }} 
-                />
               </div>
             )}
           </div>
