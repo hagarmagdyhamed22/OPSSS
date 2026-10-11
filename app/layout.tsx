@@ -12,8 +12,8 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "Probation Student Management Portal",
+export const metadata = {
+  title: "On-Probation Students Supporting System",
   description: "MSA University - Faculty of Biotechnology",
 };
 
