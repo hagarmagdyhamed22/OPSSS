@@ -1158,7 +1158,7 @@ export default function App() {
             <img src="/Biotechnology/logo.png" alt="Logo" className="w-9 h-9 object-contain rounded-xl bg-white/10 p-1 border border-white/20" />
             <div>
               <p className="text-[10px] text-indigo-200 uppercase tracking-widest font-semibold">Faculty of Biotechnology</p>
-              <h1 className="text-lg font-bold tracking-tight">Probation Student Management Portal</h1>
+              <h1 className="text-lg font-bold tracking-tight">On-Probation Students Supporting</h1>
             </div>
           </div>
           <div className="text-xs bg-indigo-950/40 px-3 py-1.5 rounded-xl border border-indigo-500/30 text-indigo-200 font-semibold">
@@ -1416,7 +1416,7 @@ export default function App() {
           </button>
           <img src="/Biotechnology/logo.png" alt="Logo" className="w-9 h-9 object-contain rounded-xl bg-white/10 p-1 border border-white/20" />
           <div>
-            <h1 className="text-base font-bold tracking-tight">Probation Student Management Portal</h1>
+            <h1 className="text-base font-bold tracking-tight">On-Probation Students Supporting System</h1>
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -1615,7 +1615,7 @@ export default function App() {
                         Welcome back, {selectedAdvisor || 'Prof. Haidan Mostafa'}
                       </h2>
                       <p className="text-indigo-200 text-xs">
-                        Faculty of Biotechnology Probation Student Management & Support System.
+                        Faculty of Biotechnology On-Probation Students Supporting System.
                       </p>
                     </div>
                   </div>
