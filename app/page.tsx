@@ -480,7 +480,6 @@ export default function App() {
     },
     {
       name: 'Hagar Magdy',
-      avatar: '/images/hagar-magdy.jpg',
       count: 9,
       students: [
         { id: '256592', name: 'Ganna Adel Faisal Mohamed Sayed Nada', level: '2', gpa: '1.3', midterm: 13, quizzes: [3.5, 3], attendanceWarnings: 1, nextFollowUp: todayDateStr, studentPhone: '01026267878', guardianPhone: '01201015656', customSections: [], courses: [], actionPlans: [], documentsList: [], assessment: { academic: '', behavioral: '', risks: [], weaknesses: [], strengths: [] }, timeline: [] },
@@ -1586,16 +1585,18 @@ export default function App() {
               <div className="space-y-6">
                 <div style={{ backgroundColor: '#45499F' }} className="rounded-3xl p-8 text-white shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                   <div className="flex items-center gap-4">
-                    <div className="w-28 h-28 rounded-2xl bg-white/10 border border-white/20 overflow-hidden flex-shrink-0">
-                      <img
-                        src="/images/hagar-magdy.jpg"
-                        alt="Profile Picture"
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = "/images/hagar-magdy.jpeg";
-                        }}
-                      />
-                    </div>
+                    {selectedAdvisor === 'Hagar Magdy' && (
+                      <div className="w-28 h-28 rounded-2xl bg-white/10 border border-white/20 overflow-hidden flex-shrink-0">
+                        <img
+                          src="/images/hagar-magdy.jpg"
+                          alt="Profile Picture"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = "/images/hagar-magdy.jpeg";
+                          }}
+                        />
+                      </div>
+                    )}
                     <div className="space-y-1">
                       <span className="bg-white/20 text-indigo-100 font-bold text-[10px] px-3 py-1 rounded-full uppercase tracking-widest border border-white/20">
                         Academic Advisor Portal
