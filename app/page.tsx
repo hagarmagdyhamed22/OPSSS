@@ -1158,7 +1158,7 @@ export default function App() {
             <img src="/Biotechnology/logo.png" alt="Logo" className="w-9 h-9 object-contain rounded-xl bg-white/10 p-1 border border-white/20" />
             <div>
               <p className="text-[10px] text-indigo-200 uppercase tracking-widest font-semibold">Faculty of Biotechnology</p>
-              <h1 className="text-lg font-bold tracking-tight">On-Probation Students Supporting</h1>
+              <h1 className="text-lg font-bold tracking-tight">On-Probation Students Supporting System</h1>
             </div>
           </div>
           <div className="text-xs bg-indigo-950/40 px-3 py-1.5 rounded-xl border border-indigo-500/30 text-indigo-200 font-semibold">
