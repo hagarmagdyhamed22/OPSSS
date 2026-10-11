@@ -1134,7 +1134,7 @@ export default function App() {
   const handleDocTeamLogin = (e) => {
     e.preventDefault();
     if (docPasswordInput !== 'Documentation123') {
-      setLoginError('Incorrect Documentation Team password. (Hint: Documentation123)');
+      setLoginError('Incorrect Documentation Team password.');
       return;
     }
     setLoginError('');
@@ -1167,7 +1167,6 @@ export default function App() {
         </header>
         <main className="flex-1 flex flex-col items-center justify-center p-6 max-w-5xl mx-auto w-full space-y-8">
           <div className="text-center space-y-3 max-w-2xl">
-      
             <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
               Academic Support & Advising System
             </h2>
@@ -1359,7 +1358,7 @@ export default function App() {
                 </div>
                 {loginError && <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-semibold">{loginError}</div>}
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Team Password (Documentation123)</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Team Password</label>
                   <div className="relative">
                     <input
                       type="password"
@@ -1594,17 +1593,16 @@ export default function App() {
               <div className="space-y-6">
                 <div style={{ backgroundColor: '#45499F' }} className="rounded-3xl p-8 text-white shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                   <div className="flex items-center gap-4">
-                    {currentAdvisorObj?.avatar ? (
-                      <img 
-                        src={currentAdvisorObj.avatar} 
-                        alt={currentAdvisorObj.name} 
-                        className="w-28 h-28 rounded-2xl object-cover border-2 border-white/30 shadow-md shrink-0" 
+                    <div className="w-28 h-28 rounded-2xl bg-white/10 border border-white/20 overflow-hidden flex-shrink-0">
+                      <img
+                        src="/images/hagar-magdy.jpg"
+                        alt="Profile Picture"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = "/images/hagar-magdy.jpeg";
+                        }}
                       />
-                    ) : (
-                      <div className="w-28 h-28 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-3xl font-extrabold text-white shrink-0">
-                        {currentAdvisorObj?.name?.charAt(0)}
-                      </div>
-                    )}
+                    </div>
                     <div className="space-y-1">
                       <span className="bg-white/20 text-indigo-100 font-bold text-[10px] px-3 py-1 rounded-full uppercase tracking-widest border border-white/20">
                         Academic Advisor Portal
