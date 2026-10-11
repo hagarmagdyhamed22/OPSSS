@@ -1274,7 +1274,7 @@ export default function App() {
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Password (default: password123)</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Password</label>
                   <div className="relative">
                     <input
                       type="password"
