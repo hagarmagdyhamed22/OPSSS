@@ -30,6 +30,38 @@ import {
   LayoutDashboard,
   Info
 } from 'lucide-react';
+function TeamMemberIcon({ name, photo }: { name: string; photo: string }) {
+  const extensions = ['jpeg', 'jpg', 'png', 'webp'];
+  const baseName = photo.replace(/\.[^.]+$/, '');
+  const [extIndex, setExtIndex] = useState(0);
+  const failed = extIndex >= extensions.length;
+  const initials = name
+    .replace(/^(Prof\.|Dr\.)\s*/i, '')
+    .split(' ')
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+  return (
+    <div className="flex flex-col items-center text-center gap-3">
+      {failed ? (
+        <div className="w-32 h-32 rounded-lg border-2 border-indigo-100 shadow-sm bg-indigo-50 text-[#45499F] flex items-center justify-center text-3xl font-extrabold">
+          {initials}
+        </div>
+      ) : (
+        <img
+          key={extIndex}
+          src={`/images/${baseName}.${extensions[extIndex]}`}
+          alt={name}
+          onError={() => setExtIndex((i) => i + 1)}
+          className="w-32 h-32 object-cover rounded-lg border-2 border-indigo-100 shadow-sm bg-slate-50"
+        />
+      )}
+      <p className="text-sm font-extrabold text-slate-900">{name}</p>
+    </div>
+  );
+}
+
 export default function OnProbationSystem() {
   const [mounted, setMounted] = useState(false);
   const [currentView, setCurrentView] = useState('landing');
@@ -138,7 +170,6 @@ export default function OnProbationSystem() {
   useEffect(() => {
     setMounted(true);
   }, []);
-
   // Keep the page background white on the landing view so no dark strip shows at the bottom
   useEffect(() => {
     if (currentView !== 'landing') return;
@@ -1469,17 +1500,67 @@ export default function OnProbationSystem() {
                   </div>
                 </div>
               </section>
-              <section className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-3">
-                <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Who We Support</h3>
-                <p className="text-sm text-slate-700 leading-relaxed">
-                  Academic advisors track each caseload, students complete assigned tasks, parents follow progress, and the documentation team keeps faculty records accurate across all 24 advisors.
-                </p>
+              <section className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+                <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Meet Our Team</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
+                  {facultyAdvisors.map((adv) => (
+                    <TeamMemberIcon
+                      key={adv.name}
+                      name={adv.name}
+                      photo={`${adv.name.replace(/^(Prof\.|Dr\.)\s*/i, '').trim().toLowerCase().replace(/\s+/g, '-')}.jpeg`}
+                    />
+                  ))}
+                </div>
               </section>
-              <section className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-3">
-                <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">How The System Works</h3>
-                <p className="text-sm text-slate-700 leading-relaxed">
-                  Login from the home page, open a student file, review courses and risk flags, assign action plans, upload documents, and log follow-up meetings until the student is out of probation.
-                </p>
+              <section className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+                <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">What is On-Probation Support System?</h3>
+                <div className="space-y-3">
+                  <p className="text-sm text-slate-700 leading-relaxed">
+                    A faculty-led academic recovery platform that connects advisors, students, parents, and the documentation team in one place. Academic advisors track each caseload, students complete assigned tasks, parents follow progress, and the documentation team keeps faculty records accurate across all 24 advisors.
+                  </p>
+                  <p className="text-sm text-slate-700 leading-relaxed">
+                    Login from the home page, open a student file, review courses and risk flags, assign action plans, upload documents, and log follow-up meetings until the student is out of probation.
+                  </p>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Presentation</h4>
+                    <a
+                      href="/media/probation-system-presentation.pdf"
+                      download="On-Probation-Support-System-Presentation.pdf"
+                      className="inline-flex items-center gap-1.5 bg-[#45499F] hover:opacity-95 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-sm transition-all cursor-pointer"
+                    >
+                      <Download size={14} />
+                      Download Presentation
+                    </a>
+                  </div>
+                  <iframe
+                    src="/media/probation-system-presentation.pdf"
+                    title="On-Probation Support System Presentation"
+                    className="w-full h-[480px] rounded-2xl border border-slate-200 bg-slate-50"
+                  />
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Video</h4>
+                    <a
+                      href="/media/probation-system-video.mp4"
+                      download="On-Probation-Support-System-Video.mp4"
+                      className="inline-flex items-center gap-1.5 bg-[#45499F] hover:opacity-95 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-sm transition-all cursor-pointer"
+                    >
+                      <Download size={14} />
+                      Download Video
+                    </a>
+                  </div>
+                  <video
+                    controls
+                    preload="metadata"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50"
+                  >
+                    <source src="/media/probation-system-video.mp4" type="video/mp4" />
+                    Your browser does not support the video tag.
+                  </video>
+                </div>
               </section>
             </div>
           </div>
@@ -1720,9 +1801,7 @@ export default function OnProbationSystem() {
       'Nourhan Maher': 'nourhan-maher.jpeg'
     };
     const photo = advisorImages[selectedAdvisor];
-    
     if (!photo) return null;
-
     return (
       <div className="w-32 h-32 rounded-2xl bg-white/10 border border-white/20 overflow-hidden flex-shrink-0">
         <img
