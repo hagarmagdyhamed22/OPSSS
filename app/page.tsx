@@ -31,17 +31,44 @@ import {
   Info
 } from 'lucide-react';
 
-export default function App() {
+export default function OnProbationSystem() {
   const [mounted, setMounted] = useState(false);
   const [currentView, setCurrentView] = useState('landing');
   const [accessMode, setAccessMode] = useState(null);
-  const [selectedAdvisor, setSelectedAdvisor] = useState('');
+  const [selectedAdvisor, setSelectedAdvisor] = useState('Prof. Haidan Mostafa');
   const [advisorPassword, setAdvisorPassword] = useState('');
   const [studentIdInput, setStudentIdInput] = useState('');
   const [parentIdInput, setParentIdInput] = useState('');
   const [docPasswordInput, setDocPasswordInput] = useState('');
   const [loginError, setLoginError] = useState('');
-  const [advisorPasswords, setAdvisorPasswords] = useState({});
+
+  const advisorPasswords = {
+    'Prof. Haidan Mostafa': 'password123',
+    'Prof. Yasmin Abdellatif': 'password123',
+    'Dr. Yara Ahmed': 'password123',
+    'Dr. Kareema Nasr Eldin': 'password123',
+    'Dr. Mai Ahmed': 'password123',
+    'Dr. Marwa Kenawy': 'password123',
+    'Dr. Gehad Tarek': 'password123',
+    'Fouad Ashry': 'password123',
+    'Nouran Yehia': 'password123',
+    'Nashwa Hamido': 'password123',
+    'Hoda allam': 'password123',
+    'Yousef AboElkhair': 'password123',
+    'Mariam Zaki': 'password123',
+    'Nada Sherif': 'password123',
+    'Salma Omar': 'password123',
+    'Hesham Fady': 'password123',
+    'Youssef Maged': 'password123',
+    'Amr Waleed': 'password123',
+    'Mohamed Fahim': 'password123',
+    'Rawan Ali': 'password123',
+    'Shahd Eltarabily': 'password123',
+    'Nourhan Maher': 'password123',
+    'Hagar Magdy': 'password123',
+    'Faten Ehab': 'password123'
+  };
+
   const [activeNav, setActiveNav] = useState('Dashboard');
   const [selectedStudentId, setSelectedStudentId] = useState(null);
   const [activeStudentTab, setActiveStudentTab] = useState('Action Plans');
@@ -1218,36 +1245,6 @@ export default function App() {
               </div>
               <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100">
                 <ShieldCheck size={24} />
-              </div>
-            </div>
-          </div>
-
-          {/* ABOUT US SECTION DIRECTLY BELOW THE TWO BOXES ON THE FIRST INTERFACE */}
-          <div className="w-full max-w-xl space-y-4">
-            <div style={{ backgroundColor: '#45499F' }} className="rounded-2xl p-6 text-white shadow-md text-center">
-              <h3 className="text-xl font-extrabold tracking-tight">About Us</h3>
-              <p className="text-indigo-200 text-xs mt-1">
-                MSA University • Faculty of Biotechnology On-Probation Students Supporting System
-              </p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
-                <h4 className="text-xs font-bold text-[#45499F] uppercase tracking-wider">Our Mission</h4>
-                <p className="text-[11px] text-slate-700 leading-relaxed font-medium">
-                  To provide proactive academic support, guidance, and personalized tracking for on-probation students, fostering resilience and academic recovery.
-                </p>
-              </div>
-              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
-                <h4 className="text-xs font-bold text-[#45499F] uppercase tracking-wider">Our Vision</h4>
-                <p className="text-[11px] text-slate-700 leading-relaxed font-medium">
-                  Creating a collaborative faculty family where every student is equipped with the tools, mentorship, and action plans needed to succeed.
-                </p>
-              </div>
-              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
-                <h4 className="text-xs font-bold text-[#45499F] uppercase tracking-wider">Support Team</h4>
-                <p className="text-[11px] text-slate-700 leading-relaxed font-medium">
-                  Dedicated academic advisors, documentation teams, and faculty administration working hand-in-hand to monitor progress and celebrate milestones.
-                </p>
               </div>
             </div>
           </div>
