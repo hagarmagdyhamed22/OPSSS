@@ -27,7 +27,8 @@ import {
   Trash2,
   X,
   Save,
-  LayoutDashboard
+  LayoutDashboard,
+  Info
 } from 'lucide-react';
 export default function App() {
   const [mounted, setMounted] = useState(false);
@@ -1471,7 +1472,8 @@ export default function App() {
                 { name: 'Dashboard', icon: LayoutDashboard },
                 { name: 'Student Preview', icon: Users },
                 { name: 'Out of Probation Students', icon: CheckCircle2 },
-                { name: 'Student Reports', icon: BarChart3 }
+                { name: 'Student Reports', icon: BarChart3 },
+                { name: 'About Us', icon: Info }
               ].map((item) => {
                 const Icon = item.icon;
                 const isActive = activeNav === item.name;
@@ -1500,6 +1502,44 @@ export default function App() {
         </aside>
         <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
           <div className="max-w-6xl mx-auto space-y-6">
+            {/* ABOUT US VIEW */}
+            {activeNav === 'About Us' && (
+              <div className="space-y-6">
+                <div style={{ backgroundColor: '#45499F' }} className="rounded-3xl p-8 text-white shadow-xl">
+                  <h2 className="text-3xl font-extrabold tracking-tight">About Us</h2>
+                  <p className="text-indigo-200 text-xs mt-1">
+                    MSA University • Faculty of Biotechnology On-Probation Students Supporting System
+                  </p>
+                </div>
+
+                {/* Three Section Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Section 1 */}
+                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+                    <h3 className="text-sm font-bold text-[#45499F] uppercase tracking-wider">Our Mission</h3>
+                    <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                      To provide proactive academic support, guidance, and personalized tracking for on-probation students, fostering resilience and academic recovery.
+                    </p>
+                  </div>
+
+                  {/* Section 2 */}
+                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+                    <h3 className="text-sm font-bold text-[#45499F] uppercase tracking-wider">Our Vision</h3>
+                    <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                      Creating a collaborative faculty family where every student is equipped with the tools, mentorship, and action plans needed to succeed.
+                    </p>
+                  </div>
+
+                  {/* Section 3 */}
+                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+                    <h3 className="text-sm font-bold text-[#45499F] uppercase tracking-wider">Support Team</h3>
+                    <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                      Dedicated academic advisors, documentation teams, and faculty administration working hand-in-hand to monitor progress and celebrate milestones.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
             {/* DOCUMENTATION OVERVIEW VIEW */}
             {activeNav === 'Documentation Overview' && (
               <div className="space-y-6">
