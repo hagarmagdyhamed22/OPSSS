@@ -30,6 +30,7 @@ import {
   LayoutDashboard,
   Info
 } from 'lucide-react';
+
 export default function App() {
   const [mounted, setMounted] = useState(false);
   const [currentView, setCurrentView] = useState('landing');
@@ -66,6 +67,7 @@ export default function App() {
   const [editDocuments, setEditDocuments] = useState([]);
   const [editTimeline, setEditTimeline] = useState([]);
   const [editCustomSections, setEditCustomSections] = useState([]);
+  
   // Editable Team Meetings State
   const [teamMeetings, setTeamMeetings] = useState([
     {
@@ -116,9 +118,11 @@ export default function App() {
   const [reportSelectedStudentId, setReportSelectedStudentId] = useState('');
   const [docTeamSearchQuery, setDocTeamSearchQuery] = useState('');
   const todayDateStr = '2026-10-11';
+
   useEffect(() => {
     setMounted(true);
   }, []);
+
   const [facultyAdvisors, setFacultyAdvisors] = useState([
     {
       name: 'Prof. Haidan Mostafa',
@@ -510,6 +514,7 @@ export default function App() {
       ]
     }
   ]);
+
   const allProbationStudents = facultyAdvisors.flatMap(adv => 
     adv.students.map(stu => ({
       ...stu,
@@ -535,6 +540,7 @@ export default function App() {
       ]
     }))
   );
+
   const currentAdvisorObj = facultyAdvisors.find(a => a.name === selectedAdvisor) || facultyAdvisors[0];
   const currentAdvisorStudents = currentAdvisorObj.students.map(stu => {
     return allProbationStudents.find(s => s.id === stu.id);
@@ -569,8 +575,10 @@ export default function App() {
     customSections: editCustomSections,
     timeline: editTimeline
   } : rawReportStudentObj;
+
   const evaluatingStudentObj = currentAdvisorStudents.find(s => s.id === evaluatingStudentId);
   const isReportStudentOutOfProbation = reportStudentObj?.level?.startsWith('out of');
+
   useEffect(() => {
     if (selectedStudentObj) {
       setEditStudentName(selectedStudentObj.name);
@@ -589,6 +597,7 @@ export default function App() {
       setEditCustomSections(selectedStudentObj.customSections ? JSON.parse(JSON.stringify(selectedStudentObj.customSections)) : []);
     }
   }, [selectedStudentId]);
+
   const handleSaveStudentEdits = () => {
     const newTimelineItem = {
       date: todayDateStr,
@@ -627,6 +636,7 @@ export default function App() {
     );
     setIsGlobalEditMode(false);
   };
+
   const handleUpdateStudentField = (stuId, field, value) => {
     setFacultyAdvisors(prevAdvisors =>
       prevAdvisors.map(adv => ({
@@ -639,6 +649,7 @@ export default function App() {
       }))
     );
   };
+
   const handleAddStudentSubmit = (e) => {
     e.preventDefault();
     if (!newStudentName.trim() || !newStudentId.trim() || !selectedAdvisor) return;
@@ -678,15 +689,19 @@ export default function App() {
     setNewStudentGuardianPhone('');
     setIsAddStudentModalOpen(false);
   };
+
   const handleAddRiskItem = () => {
     setEditableRisks([...editableRisks, 'New risk indicator']);
   };
+
   const handleAddWeaknessItem = () => {
     setEditableWeaknesses([...editableWeaknesses, 'New weakness point']);
   };
+
   const handleAddStrengthItem = () => {
     setEditableStrengths([...editableStrengths, 'New strength point']);
   };
+
   const handleDownloadDocument = (doc) => {
     const element = document.createElement("a");
     if (doc.dataUrl) {
@@ -703,6 +718,7 @@ export default function App() {
     element.click();
     document.body.removeChild(element);
   };
+
   const handleAddCustomSection = (e) => {
     e.preventDefault();
     if (!newSectionTitle.trim() || !newSectionContent.trim()) return;
@@ -738,6 +754,7 @@ export default function App() {
     setNewSectionContent('');
     setIsAddingSectionModalOpen(false);
   };
+
   const handleRenameCustomSection = (secId, newTitle) => {
     if (!newTitle.trim()) return;
     const oldSec = editCustomSections.find(s => s.id === secId);
@@ -767,6 +784,7 @@ export default function App() {
     );
     setEditingSectionId(null);
   };
+
   const handleDeleteCustomSection = (secId) => {
     const updatedSections = editCustomSections.filter(sec => sec.id !== secId);
     const newTimelineItem = {
@@ -792,6 +810,7 @@ export default function App() {
       }))
     );
   };
+
   const handleUploadDocumentSubmit = (e) => {
     e.preventDefault();
     if (!attachedFile) return;
@@ -835,6 +854,7 @@ export default function App() {
     setAttachedFile(null);
     setIsUploadModalOpen(false);
   };
+
   const handleDeleteDocument = (idx) => {
     const targetDoc = editDocuments[idx];
     const removedDoc = targetDoc.name;
@@ -867,6 +887,7 @@ export default function App() {
       }))
     );
   };
+
   const handleAddActionPlan = () => {
     const newActionText = 'New action plan task item';
     const updatedActions = [...editActionPlans, { text: newActionText, completed: false }];
@@ -893,6 +914,7 @@ export default function App() {
       }))
     );
   };
+
   const handleUpdateActionPlanText = (idx, newText) => {
     const updated = [...editActionPlans];
     updated[idx].text = newText;
@@ -911,6 +933,7 @@ export default function App() {
       }))
     );
   };
+
   const handleToggleActionPlanComplete = (idx) => {
     if (simulatedRole !== 'Student View') return;
     const updated = [...editActionPlans];
@@ -941,6 +964,7 @@ export default function App() {
       }))
     );
   };
+
   const handleDeleteActionPlan = (idx) => {
     const removedAction = editActionPlans[idx].text;
     const updatedActions = editActionPlans.filter((_, i) => i !== idx);
@@ -967,6 +991,7 @@ export default function App() {
       }))
     );
   };
+
   const handleAddCourse = () => {
     const newCrs = { name: 'New Course Name', lecturerInstructor: 'Dr. Faculty', labInstructor: 'Eng. TA', q1: '3', q2: '3', midterm: '12', assignment: '7', coursework: '25' };
     const updatedCourses = [...editCourses, newCrs];
@@ -993,6 +1018,7 @@ export default function App() {
       }))
     );
   };
+
   const handleDeleteCourse = (idx) => {
     const removedCrsName = editCourses[idx].name;
     const updatedCourses = editCourses.filter((_, i) => i !== idx);
@@ -1019,6 +1045,7 @@ export default function App() {
       }))
     );
   };
+
   const handleUpdateGrade = (idx, field, value) => {
     const updatedCourses = [...editCourses];
     const courseName = updatedCourses[idx].name;
@@ -1053,6 +1080,7 @@ export default function App() {
       }))
     );
   };
+
   const handleNavClick = (name) => {
     setActiveNav(name);
     setEvaluatingStudentId(null);
@@ -1068,6 +1096,7 @@ export default function App() {
       setReportSelectedStudentId(selectedStudentId || currentAdvisorStudents[0]?.id || allProbationStudents[0].id);
     }
   };
+
   const handleAdvisorLogin = (e) => {
     e.preventDefault();
     if (!selectedAdvisor || !advisorPassword) {
@@ -1085,6 +1114,7 @@ export default function App() {
     setSelectedStudentId(null);
     setCurrentView('app');
   };
+
   const handleStudentLogin = (e) => {
     e.preventDefault();
     if (!studentIdInput) {
@@ -1105,6 +1135,7 @@ export default function App() {
       setLoginError('Student ID not found in probation records.');
     }
   };
+
   const handleParentLogin = (e) => {
     e.preventDefault();
     if (!parentIdInput) {
@@ -1125,6 +1156,7 @@ export default function App() {
       setLoginError('Student ID not found in probation records.');
     }
   };
+
   const handleDocTeamLogin = (e) => {
     e.preventDefault();
     if (docPasswordInput !== 'Documentation123') {
@@ -1137,6 +1169,7 @@ export default function App() {
     setReportSelectedStudentId(allProbationStudents[0].id);
     setCurrentView('app');
   };
+
   if (!mounted) {
     return (
       <div suppressHydrationWarning className="min-h-screen bg-slate-100 flex items-center justify-center">
@@ -1144,6 +1177,7 @@ export default function App() {
       </div>
     );
   }
+
   if (currentView === 'landing') {
     return (
       <div suppressHydrationWarning className="min-h-screen bg-slate-100 font-sans text-slate-800 flex flex-col justify-between">
@@ -1187,6 +1221,37 @@ export default function App() {
               </div>
             </div>
           </div>
+
+          {/* ABOUT US SECTION DIRECTLY BELOW THE TWO BOXES ON THE FIRST INTERFACE */}
+          <div className="w-full max-w-xl space-y-4">
+            <div style={{ backgroundColor: '#45499F' }} className="rounded-2xl p-6 text-white shadow-md text-center">
+              <h3 className="text-xl font-extrabold tracking-tight">About Us</h3>
+              <p className="text-indigo-200 text-xs mt-1">
+                MSA University • Faculty of Biotechnology On-Probation Students Supporting System
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
+                <h4 className="text-xs font-bold text-[#45499F] uppercase tracking-wider">Our Mission</h4>
+                <p className="text-[11px] text-slate-700 leading-relaxed font-medium">
+                  To provide proactive academic support, guidance, and personalized tracking for on-probation students, fostering resilience and academic recovery.
+                </p>
+              </div>
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
+                <h4 className="text-xs font-bold text-[#45499F] uppercase tracking-wider">Our Vision</h4>
+                <p className="text-[11px] text-slate-700 leading-relaxed font-medium">
+                  Creating a collaborative faculty family where every student is equipped with the tools, mentorship, and action plans needed to succeed.
+                </p>
+              </div>
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
+                <h4 className="text-xs font-bold text-[#45499F] uppercase tracking-wider">Support Team</h4>
+                <p className="text-[11px] text-slate-700 leading-relaxed font-medium">
+                  Dedicated academic advisors, documentation teams, and faculty administration working hand-in-hand to monitor progress and celebrate milestones.
+                </p>
+              </div>
+            </div>
+          </div>
+
           <div className="w-full max-w-xl bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-xl space-y-6">
             {!accessMode && (
               <div className="space-y-4">
@@ -1377,6 +1442,7 @@ export default function App() {
       </div>
     );
   }
+
   return (
     <div suppressHydrationWarning className="min-h-screen bg-slate-100 font-sans text-slate-800 flex flex-col">
       <style dangerouslySetInnerHTML={{ __html: `
@@ -1472,8 +1538,7 @@ export default function App() {
                 { name: 'Dashboard', icon: LayoutDashboard },
                 { name: 'Student Preview', icon: Users },
                 { name: 'Out of Probation Students', icon: CheckCircle2 },
-                { name: 'Student Reports', icon: BarChart3 },
-                { name: 'About Us', icon: Info }
+                { name: 'Student Reports', icon: BarChart3 }
               ].map((item) => {
                 const Icon = item.icon;
                 const isActive = activeNav === item.name;
@@ -1502,44 +1567,6 @@ export default function App() {
         </aside>
         <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
           <div className="max-w-6xl mx-auto space-y-6">
-            {/* ABOUT US VIEW */}
-            {activeNav === 'About Us' && (
-              <div className="space-y-6">
-                <div style={{ backgroundColor: '#45499F' }} className="rounded-3xl p-8 text-white shadow-xl">
-                  <h2 className="text-3xl font-extrabold tracking-tight">About Us</h2>
-                  <p className="text-indigo-200 text-xs mt-1">
-                    MSA University • Faculty of Biotechnology On-Probation Students Supporting System
-                  </p>
-                </div>
-
-                {/* Three Section Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {/* Section 1 */}
-                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-3">
-                    <h3 className="text-sm font-bold text-[#45499F] uppercase tracking-wider">Our Mission</h3>
-                    <p className="text-xs text-slate-700 leading-relaxed font-medium">
-                      To provide proactive academic support, guidance, and personalized tracking for on-probation students, fostering resilience and academic recovery.
-                    </p>
-                  </div>
-
-                  {/* Section 2 */}
-                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-3">
-                    <h3 className="text-sm font-bold text-[#45499F] uppercase tracking-wider">Our Vision</h3>
-                    <p className="text-xs text-slate-700 leading-relaxed font-medium">
-                      Creating a collaborative faculty family where every student is equipped with the tools, mentorship, and action plans needed to succeed.
-                    </p>
-                  </div>
-
-                  {/* Section 3 */}
-                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-3">
-                    <h3 className="text-sm font-bold text-[#45499F] uppercase tracking-wider">Support Team</h3>
-                    <p className="text-xs text-slate-700 leading-relaxed font-medium">
-                      Dedicated academic advisors, documentation teams, and faculty administration working hand-in-hand to monitor progress and celebrate milestones.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
             {/* DOCUMENTATION OVERVIEW VIEW */}
             {activeNav === 'Documentation Overview' && (
               <div className="space-y-6">
@@ -3078,6 +3105,7 @@ export default function App() {
           </div>
         </main>
       </div>
+
       {/* ADD NEW STUDENT MODAL */}
       {isAddStudentModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
@@ -3154,6 +3182,7 @@ export default function App() {
           </div>
         </div>
       )}
+
       {/* ADD MEETING MODAL */}
       {isAddMeetingModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
@@ -3232,6 +3261,7 @@ export default function App() {
           </div>
         </div>
       )}
+
       {/* CREATE NEW SECTION MODAL */}
       {isAddingSectionModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
@@ -3271,6 +3301,7 @@ export default function App() {
           </div>
         </div>
       )}
+
       {/* ATTACH FILE MODAL */}
       {isUploadModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
