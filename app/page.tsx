@@ -1249,6 +1249,24 @@ export default function OnProbationSystem() {
             </div>
           </div>
 
+          <button
+            type="button"
+            onClick={() => setCurrentView('about')}
+            className="w-full max-w-xl bg-white p-6 rounded-2xl border-2 border-slate-200 hover:border-[#45499F] shadow-sm flex items-center justify-between gap-4 text-left transition-all group cursor-pointer"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-[#45499F] flex items-center justify-center border border-indigo-100 group-hover:scale-110 transition-transform">
+                <Info size={24} />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Faculty of Biotechnology</p>
+                <p className="text-xl font-extrabold text-slate-900 mt-0.5">About Us</p>
+                <p className="text-[11px] text-indigo-600 font-semibold mt-1">Learn about our mission, team, and support model</p>
+              </div>
+            </div>
+            <ChevronRight size={22} className="text-slate-400 group-hover:text-[#45499F] transition-colors shrink-0" />
+          </button>
+
           <div className="w-full max-w-xl bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-xl space-y-6">
             {!accessMode && (
               <div className="space-y-4">
@@ -1433,6 +1451,80 @@ export default function OnProbationSystem() {
             )}
           </div>
         </main>
+        <footer className="text-center py-4 text-slate-400 text-[11px]">
+          Faculty of Biotechnology &copy; 2026 MSA University. All rights reserved.
+        </footer>
+      </div>
+    );
+  }
+
+  if (currentView === 'about') {
+    return (
+      <div suppressHydrationWarning className="min-h-screen bg-slate-100 font-sans text-slate-800 flex flex-col">
+        <header className="bg-[#45499F] text-white px-6 py-4 flex items-center justify-between shadow-md">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setCurrentView('landing')}
+              title="Back to home"
+              className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center border border-white/20 transition-all cursor-pointer"
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <img src="/Biotechnology/logo.png" alt="Logo" className="w-9 h-9 object-contain rounded-xl bg-white/10 p-1 border border-white/20" />
+            <div>
+              <p className="text-[10px] text-indigo-200 uppercase tracking-widest font-semibold">Faculty of Biotechnology</p>
+              <h1 className="text-lg font-bold tracking-tight">About Us</h1>
+            </div>
+          </div>
+          <div className="text-xs bg-indigo-950/40 px-3 py-1.5 rounded-xl border border-indigo-500/30 text-indigo-200 font-semibold">
+            MSA University
+          </div>
+        </header>
+
+        <main className="flex-1 p-6 lg:p-8">
+          <div className="max-w-6xl mx-auto space-y-6">
+            <div style={{ backgroundColor: '#45499F' }} className="rounded-3xl p-8 text-white shadow-xl">
+              <h2 className="text-3xl font-extrabold tracking-tight">On-Probation Students Supporting System</h2>
+              <p className="text-indigo-200 text-sm mt-2 max-w-3xl">
+                A faculty-led academic recovery platform that connects advisors, students, parents, and the documentation team in one place.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <section className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4 min-h-[280px]">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-[#45499F] flex items-center justify-center border border-indigo-100">
+                  <HeartHandshake size={24} />
+                </div>
+                <h3 className="text-sm font-bold text-[#45499F] uppercase tracking-wider">Our Mission</h3>
+                <p className="text-sm text-slate-700 leading-relaxed">
+                  To give on-probation students structured guidance, weekly follow-up, and clear action plans so they can raise their GPA, rebuild confidence, and return to good academic standing.
+                </p>
+              </section>
+
+              <section className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4 min-h-[280px]">
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100">
+                  <Users size={24} />
+                </div>
+                <h3 className="text-sm font-bold text-[#45499F] uppercase tracking-wider">Who We Support</h3>
+                <p className="text-sm text-slate-700 leading-relaxed">
+                  Academic advisors track each caseload, students complete assigned tasks, parents follow progress, and the documentation team keeps faculty records accurate across all 24 advisors.
+                </p>
+              </section>
+
+              <section className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4 min-h-[280px]">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
+                  <ShieldCheck size={24} />
+                </div>
+                <h3 className="text-sm font-bold text-[#45499F] uppercase tracking-wider">How The System Works</h3>
+                <p className="text-sm text-slate-700 leading-relaxed">
+                  Login from the home page, open a student file, review courses and risk flags, assign action plans, upload documents, and log follow-up meetings until the student is out of probation.
+                </p>
+              </section>
+            </div>
+          </div>
+        </main>
+
         <footer className="text-center py-4 text-slate-400 text-[11px]">
           Faculty of Biotechnology &copy; 2026 MSA University. All rights reserved.
         </footer>
