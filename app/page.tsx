@@ -1711,17 +1711,43 @@ export default function OnProbationSystem() {
                         />
                       </div>
                     )}
-                    <div className="space-y-1">
-                      <span className="bg-white/20 text-indigo-100 font-bold text-[10px] px-3 py-1 rounded-full uppercase tracking-widest border border-white/20">
-                        Academic Advisor Portal
-                      </span>
-                      <h2 className="text-3xl font-extrabold tracking-tight">
-                        Welcome back, {selectedAdvisor || 'Prof. Haidan Mostafa'}
-                      </h2>
-                      <p className="text-indigo-200 text-xs">
-                        Faculty of Biotechnology On-Probation Students Supporting System.
-                      </p>
-                    </div>
+                    <div className="flex items-center gap-4">
+  {(() => {
+    const advisorImages = {
+      'Hagar Magdy': 'hagar-magdy.jpeg',
+      'Prof. Haidan Mostafa': 'haidan-mostafa.jpeg',
+      'Dr. Gehad Tarek': 'gehad-tarek.jpeg',
+      'Nourhan Maher': 'nourhan-maher.jpeg'
+    };
+    const photo = advisorImages[selectedAdvisor];
+    
+    if (!photo) return null;
+
+    return (
+      <div className="w-32 h-32 rounded-2xl bg-white/10 border border-white/20 overflow-hidden flex-shrink-0">
+        <img
+          src={`/images/${photo}`}
+          alt={selectedAdvisor}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = "/images/dean.jpeg";
+          }}
+        />
+      </div>
+    );
+  })()}
+  <div className="space-y-1">
+    <span className="bg-white/20 text-indigo-100 font-bold text-[10px] px-3 py-1 rounded-full uppercase tracking-widest border border-white/20">
+      Academic Advisor Portal
+    </span>
+    <h2 className="text-3xl font-extrabold tracking-tight">
+      Welcome back, {selectedAdvisor}
+    </h2>
+    <p className="text-indigo-200 text-xs">
+      Faculty of Biotechnology On-Probation Students Supporting System.
+    </p>
+  </div>
+</div>
                   </div>
                   <div className="flex items-center gap-3">
                     <button
