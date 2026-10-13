@@ -1453,7 +1453,7 @@ export default function OnProbationSystem() {
                 <div className="space-y-4">
                   <div className="flex items-center gap-3">
                     <img
-                      src="/images/dean.jpeg"
+                      src="/images/Meet Our Dean.jpeg"
                       alt="Dean of the Faculty of Biotechnology"
                       className="w-32 h-32 object-cover rounded-lg border-2 border-indigo-100 shadow-sm shrink-0 bg-slate-50"
                     />
