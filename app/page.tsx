@@ -30,7 +30,6 @@ import {
   LayoutDashboard,
   Info
 } from 'lucide-react';
-
 export default function OnProbationSystem() {
   const [mounted, setMounted] = useState(false);
   const [currentView, setCurrentView] = useState('landing');
@@ -41,7 +40,6 @@ export default function OnProbationSystem() {
   const [parentIdInput, setParentIdInput] = useState('');
   const [docPasswordInput, setDocPasswordInput] = useState('');
   const [loginError, setLoginError] = useState('');
-
   const advisorPasswords = {
     'Prof. Haidan Mostafa': 'password123',
     'Prof. Yasmin Abdellatif': 'password123',
@@ -68,33 +66,27 @@ export default function OnProbationSystem() {
     'Hagar Magdy': 'password123',
     'Faten Ehab': 'password123'
   };
-
   const [activeNav, setActiveNav] = useState('Dashboard');
   const [selectedStudentId, setSelectedStudentId] = useState(null);
   const [activeStudentTab, setActiveStudentTab] = useState('Action Plans');
   const [simulatedRole, setSimulatedRole] = useState('Academic Advisor');
   const [isGlobalEditMode, setIsGlobalEditMode] = useState(false);
-  
   // Dashboard Table Edit Mode Toggle
   const [isDashboardEditMode, setIsDashboardEditMode] = useState(false);
-  
   const [editStudentName, setEditStudentName] = useState('');
   const [editStudentGpa, setEditStudentGpa] = useState('');
   const [editStudentLevel, setEditStudentLevel] = useState('');
   const [editStudentMidterm, setEditStudentMidterm] = useState('');
-  
   const [editableAcademic, setEditableAcademic] = useState('');
   const [editableBehavioral, setEditableBehavioral] = useState('');
   const [editableRisks, setEditableRisks] = useState([]);
   const [editableWeaknesses, setEditableWeaknesses] = useState([]);
   const [editableStrengths, setEditableStrengths] = useState([]);
-  
   const [editCourses, setEditCourses] = useState([]);
   const [editActionPlans, setEditActionPlans] = useState([]);
   const [editDocuments, setEditDocuments] = useState([]);
   const [editTimeline, setEditTimeline] = useState([]);
   const [editCustomSections, setEditCustomSections] = useState([]);
-  
   // Editable Team Meetings State
   const [teamMeetings, setTeamMeetings] = useState([
     {
@@ -125,7 +117,6 @@ export default function OnProbationSystem() {
   const [newMeetingDate, setNewMeetingDate] = useState('2026-10-20');
   const [newMeetingTime, setNewMeetingTime] = useState('10:00 AM');
   const [isTeamMeetingsEditMode, setIsTeamMeetingsEditMode] = useState(false);
-  
   const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
   const [newStudentName, setNewStudentName] = useState('');
   const [newStudentId, setNewStudentId] = useState('');
@@ -138,18 +129,30 @@ export default function OnProbationSystem() {
   const [newSectionContent, setNewSectionContent] = useState('');
   const [editingSectionId, setEditingSectionId] = useState(null);
   const [editingSectionTitleText, setEditingSectionTitleText] = useState('');
-  
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [attachedFile, setAttachedFile] = useState(null);
   const [evaluatingStudentId, setEvaluatingStudentId] = useState(null);
   const [reportSelectedStudentId, setReportSelectedStudentId] = useState('');
   const [docTeamSearchQuery, setDocTeamSearchQuery] = useState('');
   const todayDateStr = '2026-10-11';
-
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  // Keep the page background white on the landing view so no dark strip shows at the bottom
+  useEffect(() => {
+    if (currentView !== 'landing') return;
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtmlBg = html.style.backgroundColor;
+    const prevBodyBg = body.style.backgroundColor;
+    html.style.backgroundColor = '#ffffff';
+    body.style.backgroundColor = '#ffffff';
+    return () => {
+      html.style.backgroundColor = prevHtmlBg;
+      body.style.backgroundColor = prevBodyBg;
+    };
+  }, [currentView]);
   const [facultyAdvisors, setFacultyAdvisors] = useState([
     {
       name: 'Prof. Haidan Mostafa',
@@ -541,7 +544,6 @@ export default function OnProbationSystem() {
       ]
     }
   ]);
-
   const allProbationStudents = facultyAdvisors.flatMap(adv => 
     adv.students.map(stu => ({
       ...stu,
@@ -567,20 +569,15 @@ export default function OnProbationSystem() {
       ]
     }))
   );
-
   const currentAdvisorObj = facultyAdvisors.find(a => a.name === selectedAdvisor) || facultyAdvisors[0];
   const currentAdvisorStudents = currentAdvisorObj.students.map(stu => {
     return allProbationStudents.find(s => s.id === stu.id);
   });
-  
   const normalDashboardStudents = currentAdvisorStudents.filter(s => !s.level.startsWith('out of'));
   const outOfProbationSectionStudents = currentAdvisorStudents.filter(s => s.level.startsWith('out of'));
-  
   const followUpsTodayCount = currentAdvisorStudents.filter(s => s.nextFollowUp === todayDateStr).length;
   const outOfProbationCount = outOfProbationSectionStudents.length;
-  
   const selectedStudentObj = allProbationStudents.find(s => s.id === selectedStudentId) || allProbationStudents[0];
-  
   const advisorSpecificStudents = allProbationStudents.filter(s => s.advisor === selectedAdvisor);
   const reportDropdownStudents = simulatedRole === 'Academic Advisor' ? advisorSpecificStudents : allProbationStudents;
   const rawReportStudentObj = allProbationStudents.find(s => s.id === reportSelectedStudentId) || currentAdvisorStudents[0] || allProbationStudents[0];
@@ -602,10 +599,8 @@ export default function OnProbationSystem() {
     customSections: editCustomSections,
     timeline: editTimeline
   } : rawReportStudentObj;
-
   const evaluatingStudentObj = currentAdvisorStudents.find(s => s.id === evaluatingStudentId);
   const isReportStudentOutOfProbation = reportStudentObj?.level?.startsWith('out of');
-
   useEffect(() => {
     if (selectedStudentObj) {
       setEditStudentName(selectedStudentObj.name);
@@ -624,7 +619,6 @@ export default function OnProbationSystem() {
       setEditCustomSections(selectedStudentObj.customSections ? JSON.parse(JSON.stringify(selectedStudentObj.customSections)) : []);
     }
   }, [selectedStudentId]);
-
   const handleSaveStudentEdits = () => {
     const newTimelineItem = {
       date: todayDateStr,
@@ -663,7 +657,6 @@ export default function OnProbationSystem() {
     );
     setIsGlobalEditMode(false);
   };
-
   const handleUpdateStudentField = (stuId, field, value) => {
     setFacultyAdvisors(prevAdvisors =>
       prevAdvisors.map(adv => ({
@@ -676,7 +669,6 @@ export default function OnProbationSystem() {
       }))
     );
   };
-
   const handleAddStudentSubmit = (e) => {
     e.preventDefault();
     if (!newStudentName.trim() || !newStudentId.trim() || !selectedAdvisor) return;
@@ -716,19 +708,15 @@ export default function OnProbationSystem() {
     setNewStudentGuardianPhone('');
     setIsAddStudentModalOpen(false);
   };
-
   const handleAddRiskItem = () => {
     setEditableRisks([...editableRisks, 'New risk indicator']);
   };
-
   const handleAddWeaknessItem = () => {
     setEditableWeaknesses([...editableWeaknesses, 'New weakness point']);
   };
-
   const handleAddStrengthItem = () => {
     setEditableStrengths([...editableStrengths, 'New strength point']);
   };
-
   const handleDownloadDocument = (doc) => {
     const element = document.createElement("a");
     if (doc.dataUrl) {
@@ -745,7 +733,6 @@ export default function OnProbationSystem() {
     element.click();
     document.body.removeChild(element);
   };
-
   const handleAddCustomSection = (e) => {
     e.preventDefault();
     if (!newSectionTitle.trim() || !newSectionContent.trim()) return;
@@ -781,7 +768,6 @@ export default function OnProbationSystem() {
     setNewSectionContent('');
     setIsAddingSectionModalOpen(false);
   };
-
   const handleRenameCustomSection = (secId, newTitle) => {
     if (!newTitle.trim()) return;
     const oldSec = editCustomSections.find(s => s.id === secId);
@@ -811,7 +797,6 @@ export default function OnProbationSystem() {
     );
     setEditingSectionId(null);
   };
-
   const handleDeleteCustomSection = (secId) => {
     const updatedSections = editCustomSections.filter(sec => sec.id !== secId);
     const newTimelineItem = {
@@ -837,7 +822,6 @@ export default function OnProbationSystem() {
       }))
     );
   };
-
   const handleUploadDocumentSubmit = (e) => {
     e.preventDefault();
     if (!attachedFile) return;
@@ -845,7 +829,6 @@ export default function OnProbationSystem() {
     const isWord = fileName.endsWith('.docx') || fileName.endsWith('.doc');
     const fileType = isWord ? 'docx' : 'pdf';
     const dataUrl = URL.createObjectURL(attachedFile);
-    
     const resolvedSectionType = simulatedRole === 'Academic Advisor' ? 'advisor' : 'student';
     const newDocObj = {
       name: fileName,
@@ -853,7 +836,6 @@ export default function OnProbationSystem() {
       dataUrl: dataUrl,
       sectionType: resolvedSectionType
     };
-    
     const loggedUser = simulatedRole === 'Student View' ? selectedStudentObj.name : selectedStudentObj.advisor;
     const newTimelineItem = {
       date: todayDateStr,
@@ -881,7 +863,6 @@ export default function OnProbationSystem() {
     setAttachedFile(null);
     setIsUploadModalOpen(false);
   };
-
   const handleDeleteDocument = (idx) => {
     const targetDoc = editDocuments[idx];
     const removedDoc = targetDoc.name;
@@ -914,7 +895,6 @@ export default function OnProbationSystem() {
       }))
     );
   };
-
   const handleAddActionPlan = () => {
     const newActionText = 'New action plan task item';
     const updatedActions = [...editActionPlans, { text: newActionText, completed: false }];
@@ -941,7 +921,6 @@ export default function OnProbationSystem() {
       }))
     );
   };
-
   const handleUpdateActionPlanText = (idx, newText) => {
     const updated = [...editActionPlans];
     updated[idx].text = newText;
@@ -960,7 +939,6 @@ export default function OnProbationSystem() {
       }))
     );
   };
-
   const handleToggleActionPlanComplete = (idx) => {
     if (simulatedRole !== 'Student View') return;
     const updated = [...editActionPlans];
@@ -991,7 +969,6 @@ export default function OnProbationSystem() {
       }))
     );
   };
-
   const handleDeleteActionPlan = (idx) => {
     const removedAction = editActionPlans[idx].text;
     const updatedActions = editActionPlans.filter((_, i) => i !== idx);
@@ -1018,7 +995,6 @@ export default function OnProbationSystem() {
       }))
     );
   };
-
   const handleAddCourse = () => {
     const newCrs = { name: 'New Course Name', lecturerInstructor: 'Dr. Faculty', labInstructor: 'Eng. TA', q1: '3', q2: '3', midterm: '12', assignment: '7', coursework: '25' };
     const updatedCourses = [...editCourses, newCrs];
@@ -1045,7 +1021,6 @@ export default function OnProbationSystem() {
       }))
     );
   };
-
   const handleDeleteCourse = (idx) => {
     const removedCrsName = editCourses[idx].name;
     const updatedCourses = editCourses.filter((_, i) => i !== idx);
@@ -1072,7 +1047,6 @@ export default function OnProbationSystem() {
       }))
     );
   };
-
   const handleUpdateGrade = (idx, field, value) => {
     const updatedCourses = [...editCourses];
     const courseName = updatedCourses[idx].name;
@@ -1107,7 +1081,6 @@ export default function OnProbationSystem() {
       }))
     );
   };
-
   const handleNavClick = (name) => {
     setActiveNav(name);
     setEvaluatingStudentId(null);
@@ -1123,7 +1096,6 @@ export default function OnProbationSystem() {
       setReportSelectedStudentId(selectedStudentId || currentAdvisorStudents[0]?.id || allProbationStudents[0].id);
     }
   };
-
   const handleAdvisorLogin = (e) => {
     e.preventDefault();
     if (!selectedAdvisor || !advisorPassword) {
@@ -1141,7 +1113,6 @@ export default function OnProbationSystem() {
     setSelectedStudentId(null);
     setCurrentView('app');
   };
-
   const handleStudentLogin = (e) => {
     e.preventDefault();
     if (!studentIdInput) {
@@ -1162,7 +1133,6 @@ export default function OnProbationSystem() {
       setLoginError('Student ID not found in probation records.');
     }
   };
-
   const handleParentLogin = (e) => {
     e.preventDefault();
     if (!parentIdInput) {
@@ -1183,7 +1153,6 @@ export default function OnProbationSystem() {
       setLoginError('Student ID not found in probation records.');
     }
   };
-
   const handleDocTeamLogin = (e) => {
     e.preventDefault();
     if (docPasswordInput !== 'Documentation123') {
@@ -1196,7 +1165,6 @@ export default function OnProbationSystem() {
     setReportSelectedStudentId(allProbationStudents[0].id);
     setCurrentView('app');
   };
-
   if (!mounted) {
     return (
       <div suppressHydrationWarning className="min-h-screen bg-slate-100 flex items-center justify-center">
@@ -1204,10 +1172,9 @@ export default function OnProbationSystem() {
       </div>
     );
   }
-
   if (currentView === 'landing') {
     return (
-      <div suppressHydrationWarning className="min-h-screen bg-slate-100 font-sans text-slate-800 flex flex-col justify-between">
+      <div suppressHydrationWarning style={{ backgroundColor: '#ffffff' }} className="min-h-screen bg-white font-sans text-slate-800 flex flex-col">
         <header className="bg-[#45499F] text-white px-6 py-4 flex items-center justify-between shadow-md">
           <div className="flex items-center gap-3">
             <img src="/Biotechnology/logo.png" alt="Logo" className="w-9 h-9 object-contain rounded-xl bg-white/10 p-1 border border-white/20" />
@@ -1248,7 +1215,6 @@ export default function OnProbationSystem() {
               </div>
             </div>
           </div>
-
           <button
             type="button"
             onClick={() => setCurrentView('about')}
@@ -1259,14 +1225,12 @@ export default function OnProbationSystem() {
                 <Info size={24} />
               </div>
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Faculty of Biotechnology</p>
-                <p className="text-xl font-extrabold text-slate-900 mt-0.5">About Us</p>
+                <p className="text-xl font-extrabold text-slate-900">About Us</p>
                 <p className="text-[11px] text-indigo-600 font-semibold mt-1">Learn about our mission, team, and support model</p>
               </div>
             </div>
             <ChevronRight size={22} className="text-slate-400 group-hover:text-[#45499F] transition-colors shrink-0" />
           </button>
-
           <div className="w-full max-w-xl bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-xl space-y-6">
             {!accessMode && (
               <div className="space-y-4">
@@ -1451,13 +1415,9 @@ export default function OnProbationSystem() {
             )}
           </div>
         </main>
-        <footer className="text-center py-4 text-slate-400 text-[11px]">
-          Faculty of Biotechnology &copy; 2026 MSA University. All rights reserved.
-        </footer>
       </div>
     );
   }
-
   if (currentView === 'about') {
     return (
       <div suppressHydrationWarning className="min-h-screen bg-slate-100 font-sans text-slate-800 flex flex-col">
@@ -1473,7 +1433,6 @@ export default function OnProbationSystem() {
             </button>
             <img src="/Biotechnology/logo.png" alt="Logo" className="w-9 h-9 object-contain rounded-xl bg-white/10 p-1 border border-white/20" />
             <div>
-              <p className="text-[10px] text-indigo-200 uppercase tracking-widest font-semibold">Faculty of Biotechnology</p>
               <h1 className="text-lg font-bold tracking-tight">About Us</h1>
             </div>
           </div>
@@ -1481,7 +1440,6 @@ export default function OnProbationSystem() {
             MSA University
           </div>
         </header>
-
         <main className="flex-1 p-6 lg:p-8">
           <div className="max-w-6xl mx-auto space-y-6">
             <div style={{ backgroundColor: '#45499F' }} className="rounded-3xl p-8 text-white shadow-xl">
@@ -1490,33 +1448,35 @@ export default function OnProbationSystem() {
                 A faculty-led academic recovery platform that connects advisors, students, parents, and the documentation team in one place.
               </p>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <section className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4 min-h-[280px]">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-[#45499F] flex items-center justify-center border border-indigo-100">
-                  <HeartHandshake size={24} />
+            <div className="flex flex-col gap-6">
+              <section className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src="/Biotechnology/dean.jpg"
+                      alt="Dean of the Faculty of Biotechnology"
+                      className="w-32 h-32 object-cover rounded-lg border-2 border-indigo-100 shadow-sm shrink-0 bg-slate-50"
+                    />
+                    <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Meet Our Dean</h3>
+                  </div>
+                  <div className="space-y-3">
+                    <p className="text-sm text-slate-700 leading-relaxed">
+                      Professor Gehan Safwat served for several years as Vice Dean of the Faculty of Biotechnology for Student Affairs and Community Service. She is the first Egyptian woman to receive a fully funded PhD scholarship from the University of Cambridge and completed her postdoctoral studies in Australia.
+                    </p>
+                    <p className="text-sm text-slate-700 leading-relaxed">
+                      She has led UN food security initiatives and missions to refugee camps worldwide, and trained UN staff in food security and women’s empowerment. A distinguished scientist with numerous publications and prestigious awards, she currently chairs the National Committee for Women in Science.
+                    </p>
+                  </div>
                 </div>
-                <h3 className="text-sm font-bold text-[#45499F] uppercase tracking-wider">Our Mission</h3>
-                <p className="text-sm text-slate-700 leading-relaxed">
-                  To give on-probation students structured guidance, weekly follow-up, and clear action plans so they can raise their GPA, rebuild confidence, and return to good academic standing.
-                </p>
               </section>
-
-              <section className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4 min-h-[280px]">
-                <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100">
-                  <Users size={24} />
-                </div>
-                <h3 className="text-sm font-bold text-[#45499F] uppercase tracking-wider">Who We Support</h3>
+              <section className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+                <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Who We Support</h3>
                 <p className="text-sm text-slate-700 leading-relaxed">
                   Academic advisors track each caseload, students complete assigned tasks, parents follow progress, and the documentation team keeps faculty records accurate across all 24 advisors.
                 </p>
               </section>
-
-              <section className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4 min-h-[280px]">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
-                  <ShieldCheck size={24} />
-                </div>
-                <h3 className="text-sm font-bold text-[#45499F] uppercase tracking-wider">How The System Works</h3>
+              <section className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+                <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">How The System Works</h3>
                 <p className="text-sm text-slate-700 leading-relaxed">
                   Login from the home page, open a student file, review courses and risk flags, assign action plans, upload documents, and log follow-up meetings until the student is out of probation.
                 </p>
@@ -1524,14 +1484,12 @@ export default function OnProbationSystem() {
             </div>
           </div>
         </main>
-
         <footer className="text-center py-4 text-slate-400 text-[11px]">
           Faculty of Biotechnology &copy; 2026 MSA University. All rights reserved.
         </footer>
       </div>
     );
   }
-
   return (
     <div suppressHydrationWarning className="min-h-screen bg-slate-100 font-sans text-slate-800 flex flex-col">
       <style dangerouslySetInnerHTML={{ __html: `
@@ -2608,7 +2566,6 @@ export default function OnProbationSystem() {
                                       >
                                         <Download size={16} />
                                       </button>
-                                      
                                       {simulatedRole === 'Student View' && (
                                         <button
                                           onClick={() => handleDeleteDocument(idx)}
@@ -2922,7 +2879,6 @@ export default function OnProbationSystem() {
                       )}
                     </div>
                   </div>
-                  
                   {/* Grouped Team Meetings Display Stacked Vertically */}
                   <div className="space-y-6">
                     {Array.from(new Set(teamMeetings.map(m => m.category))).map((categoryName) => {
@@ -3194,7 +3150,6 @@ export default function OnProbationSystem() {
           </div>
         </main>
       </div>
-
       {/* ADD NEW STUDENT MODAL */}
       {isAddStudentModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
@@ -3271,7 +3226,6 @@ export default function OnProbationSystem() {
           </div>
         </div>
       )}
-
       {/* ADD MEETING MODAL */}
       {isAddMeetingModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
@@ -3350,7 +3304,6 @@ export default function OnProbationSystem() {
           </div>
         </div>
       )}
-
       {/* CREATE NEW SECTION MODAL */}
       {isAddingSectionModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
@@ -3390,7 +3343,6 @@ export default function OnProbationSystem() {
           </div>
         </div>
       )}
-
       {/* ATTACH FILE MODAL */}
       {isUploadModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
