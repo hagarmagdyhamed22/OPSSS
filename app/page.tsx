@@ -1210,7 +1210,7 @@ export default function OnProbationSystem() {
       <div suppressHydrationWarning style={{ backgroundColor: '#ffffff' }} className="min-h-screen bg-white font-sans text-slate-800 flex flex-col">
         <header className="bg-[#45499F] text-white px-6 py-4 flex items-center justify-between shadow-md">
           <div className="flex items-center gap-3">
-            <img src="/Biotechnology/logo.png" alt="Logo" className="w-32 h-32 object-contain rounded-xl bg-white/10 p-1 border border-white/20" />
+            <img src="/Biotechnology/logo.png" alt="Logo" className="w-[6.25rem] h-[6.25rem] object-contain rounded-xl bg-white/10 p-1 border border-white/20" />
             <div>
               <p className="text-[10px] text-indigo-200 uppercase tracking-widest font-semibold">Faculty of Biotechnology</p>
               <h1 className="text-lg font-bold tracking-tight">On-Probation Students Supporting System</h1>
@@ -1464,7 +1464,7 @@ export default function OnProbationSystem() {
             >
               <ArrowLeft size={18} />
             </button>
-            <img src="/Biotechnology/logo.png" alt="Logo" className="w-32 h-32 object-contain rounded-xl bg-white/10 p-1 border border-white/20" />
+            <img src="/Biotechnology/logo.png" alt="Logo" className="w-[6.25rem] h-[6.25rem] object-contain rounded-xl bg-white/10 p-1 border border-white/20" />
             <div>
               <h1 className="text-lg font-bold tracking-tight">About Us</h1>
             </div>
@@ -1617,7 +1617,7 @@ export default function OnProbationSystem() {
           <button onClick={() => { setCurrentView('landing'); setAccessMode(null); }} title="Logout" className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center border border-white/20 transition-all cursor-pointer">
             <ArrowLeft size={18} />
           </button>
-          <img src="/Biotechnology/logo.png" alt="Logo" className="w-32 h-32 object-contain rounded-xl bg-white/10 p-1 border border-white/20" />
+          <img src="/Biotechnology/logo.png" alt="Logo" className="w-[6.25rem] h-[6.25rem] object-contain rounded-xl bg-white/10 p-1 border border-white/20" />
           <div>
             <h1 className="text-base font-bold tracking-tight">On-Probation Students Supporting System</h1>
           </div>
