@@ -1516,29 +1516,18 @@ export default function OnProbationSystem() {
                 <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">What is On-Probation Support System?</h3>
                 <div className="space-y-3">
                   <p className="text-sm text-slate-700 leading-relaxed">
-                    A faculty-led academic recovery platform that connects advisors, students, parents, and the documentation team in one place. Academic advisors track each caseload, students complete assigned tasks, parents follow progress, and the documentation team keeps faculty records accurate across all 24 advisors.
-                  </p>
-                  <p className="text-sm text-slate-700 leading-relaxed">
-                    Login from the home page, open a student file, review courses and risk flags, assign action plans, upload documents, and log follow-up meetings until the student is out of probation.
+                    The On-Probation Supporting System is designed to support students who are facing academic challenges and help them improve their academic performance. The system facilitates communication between students, and academic advisors to ensure that students receive the necessary guidance and support throughout their academic journey. It helps monitor students’ academic progress, track their attendance, identify challenges, and follow up on individual cases through regular communication and documentation. By providing continuous support and timely intervention, the system aims to help students overcome academic difficulties, improve their performance, and successfully get out of probation.
                   </p>
                 </div>
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Presentation</h4>
-                    <a
-                      href="/media/probation-system-presentation.pdf"
-                      download="On-Probation-Support-System-Presentation.pdf"
-                      className="inline-flex items-center gap-1.5 bg-[#45499F] hover:opacity-95 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-sm transition-all cursor-pointer"
-                    >
-                      <Download size={14} />
-                      Download Presentation
-                    </a>
-                  </div>
-                  <iframe
-                    src="/media/probation-system-presentation.pdf"
-                    title="On-Probation Support System Presentation"
-                    className="w-full h-[480px] rounded-2xl border border-slate-200 bg-slate-50"
-                  />
+                  <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider">On-Probation Support System Hierarchy</h4>
+                  <a href="/images/opsss-hierarchy.jpeg" target="_blank" rel="noopener noreferrer" className="block cursor-pointer">
+                    <img
+                      src="/images/opsss-hierarchy.jpeg"
+                      alt="On Probation Student Support System (OPSSS) hierarchy"
+                      className="w-full h-auto rounded-2xl border border-slate-200 shadow-sm bg-slate-50"
+                    />
+                  </a>
                 </div>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-3">
