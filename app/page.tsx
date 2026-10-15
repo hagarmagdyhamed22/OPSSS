@@ -168,7 +168,10 @@ export default function OnProbationSystem() {
   const [evaluatingStudentId, setEvaluatingStudentId] = useState(null);
   const [reportSelectedStudentId, setReportSelectedStudentId] = useState('');
   const [docTeamSearchQuery, setDocTeamSearchQuery] = useState('');
-  const todayDateStr = '2026-10-11';
+  const todayDateStr = (() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  })();
   useEffect(() => {
     setMounted(true);
   }, []);
