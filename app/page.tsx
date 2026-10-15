@@ -1520,7 +1520,7 @@ export default function OnProbationSystem() {
                   </p>
                 </div>
                 <div className="space-y-3">
-                  <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider">On-Probation Support System Hierarchy</h4>
+                  <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">On-Probation Support System Hierarchy</h3>
                   <a href="/images/opsss-hierarchy.jpeg" target="_blank" rel="noopener noreferrer" className="block cursor-pointer">
                     <img
                       src="/images/opsss-hierarchy.jpeg"
