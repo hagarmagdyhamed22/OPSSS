@@ -30,8 +30,77 @@ import {
   LayoutDashboard,
   Info,
   Eye,
-  Target
+  Target,
+  Phone,
+  MessageCircle,
+  Mail
 } from 'lucide-react';
+// Advisor phone numbers (write each number between the quotes, e.g. '01012345678').
+// An advisor with an empty number shows no contact buttons in the welcome banner.
+const ADVISOR_PHONES: Record<string, string> = {
+  'Prof. Haidan Mostafa': '',
+  'Prof. Yasmin Abdellatif': '',
+  'Dr. Yara Ahmed': '',
+  'Dr. Kareema Nasr Eldin': '',
+  'Dr. Mai Ahmed': '',
+  'Dr. Marwa Kenawy': '',
+  'Dr. Gehad Tarek': '',
+  'Fouad Ashry': '',
+  'Nouran Yehia': '',
+  'Nashwa Hamido': '',
+  'Hoda allam': '',
+  'Yousef AboElkhair': '',
+  'Mariam Zaki': '',
+  'Nada Sherif': '',
+  'Salma Omar': '',
+  'Hesham Fady': '',
+  'Youssef Maged': '',
+  'Amr Waleed': '',
+  'Mohamed Fahim': '',
+  'Rawan Ali': '',
+  'Shahd Eltarabily': '',
+  'Nourhan Maher': '',
+  'Hagar Magdy': '',
+  'Faten Ehab': '',
+};
+
+// Advisor email addresses (write each email between the quotes, e.g. 'name@msa.edu.eg').
+// An advisor with an empty email shows no email button in the welcome banner.
+const ADVISOR_EMAILS: Record<string, string> = {
+  'Prof. Haidan Mostafa': '',
+  'Prof. Yasmin Abdellatif': '',
+  'Dr. Yara Ahmed': '',
+  'Dr. Kareema Nasr Eldin': '',
+  'Dr. Mai Ahmed': '',
+  'Dr. Marwa Kenawy': '',
+  'Dr. Gehad Tarek': '',
+  'Fouad Ashry': '',
+  'Nouran Yehia': '',
+  'Nashwa Hamido': '',
+  'Hoda allam': '',
+  'Yousef AboElkhair': '',
+  'Mariam Zaki': '',
+  'Nada Sherif': '',
+  'Salma Omar': '',
+  'Hesham Fady': '',
+  'Youssef Maged': '',
+  'Amr Waleed': '',
+  'Mohamed Fahim': '',
+  'Rawan Ali': '',
+  'Shahd Eltarabily': '',
+  'Nourhan Maher': '',
+  'Hagar Magdy': '',
+  'Faten Ehab': '',
+};
+
+// Turns an Egyptian local number (01012345678) into the international form WhatsApp needs (201012345678)
+function toWhatsAppNumber(phone: string) {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.startsWith('00')) return digits.slice(2);
+  if (digits.startsWith('0')) return `20${digits.slice(1)}`;
+  return digits;
+}
+
 function TeamMemberIcon({ name, photo }: { name: string; photo: string }) {
   const extensions = ['jpeg', 'jpg', 'png', 'webp'];
   const baseName = photo.replace(/\.[^.]+$/, '');
@@ -1850,6 +1919,39 @@ export default function OnProbationSystem() {
     <p className="text-indigo-200 text-xs">
       Faculty of Biotechnology On-Probation Students Supporting System.
     </p>
+    {(ADVISOR_PHONES[selectedAdvisor] || ADVISOR_EMAILS[selectedAdvisor]) && (
+      <div className="flex flex-wrap items-center gap-2 pt-2">
+        {ADVISOR_PHONES[selectedAdvisor] && (
+          <a
+            href={`tel:${ADVISOR_PHONES[selectedAdvisor]}`}
+            className="inline-flex items-center gap-1.5 bg-white/15 hover:bg-white/25 border border-white/20 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+          >
+            <Phone size={14} />
+            {ADVISOR_PHONES[selectedAdvisor]}
+          </a>
+        )}
+        {ADVISOR_PHONES[selectedAdvisor] && (
+          <a
+            href={`https://wa.me/${toWhatsAppNumber(ADVISOR_PHONES[selectedAdvisor])}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-sm transition-all cursor-pointer"
+          >
+            <MessageCircle size={14} />
+            Chat on WhatsApp
+          </a>
+        )}
+        {ADVISOR_EMAILS[selectedAdvisor] && (
+          <a
+            href={`mailto:${ADVISOR_EMAILS[selectedAdvisor]}`}
+            className="inline-flex items-center gap-1.5 bg-white/15 hover:bg-white/25 border border-white/20 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+          >
+            <Mail size={14} />
+            {ADVISOR_EMAILS[selectedAdvisor]}
+          </a>
+        )}
+      </div>
+    )}
   </div>
 </div>
                   </div>
