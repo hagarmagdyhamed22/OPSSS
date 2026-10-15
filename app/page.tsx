@@ -1787,7 +1787,11 @@ export default function OnProbationSystem() {
       'Hagar Magdy': 'hagar-magdy.jpeg',
       'Prof. Haidan Mostafa': 'haidan-mostafa.jpeg',
       'Dr. Gehad Tarek': 'gehad-tarek.jpeg',
-      'Nourhan Maher': 'nourhan-maher.jpeg'
+      'Nourhan Maher': 'nourhan-maher.jpeg',
+      'Dr. Marwa Kenawy': 'marwa-kenawy.jpeg',
+      'Dr. Mai Ahmed': 'mai-ahmed.jpeg',
+      'Nashwa Hamido': 'nashwa-hamido.jpeg',
+      'Youssef Maged': 'youssef-maged.jpeg'
     };
     const photo = advisorImages[selectedAdvisor];
     if (!photo) return null;
