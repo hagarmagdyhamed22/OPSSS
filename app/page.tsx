@@ -28,7 +28,9 @@ import {
   X,
   Save,
   LayoutDashboard,
-  Info
+  Info,
+  Eye,
+  Target
 } from 'lucide-react';
 function TeamMemberIcon({ name, photo }: { name: string; photo: string }) {
   const extensions = ['jpeg', 'jpg', 'png', 'webp'];
@@ -1549,6 +1551,33 @@ export default function OnProbationSystem() {
                     <source src="/media/probation-system-video.mp4" type="video/mp4" />
                     Your browser does not support the video tag.
                   </video>
+                </div>
+              </section>
+              <section className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+                <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Our Mission &amp; Vision</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-indigo-50/60 border border-indigo-100 rounded-2xl p-6 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-[#45499F] text-white flex items-center justify-center shadow-sm">
+                        <Eye size={20} />
+                      </div>
+                      <h4 className="text-lg font-extrabold text-slate-900 tracking-tight">Our Vision</h4>
+                    </div>
+                    <p className="text-sm text-slate-700 leading-relaxed">
+                      To be a leading model of academic support, where every student facing academic challenges is guided, supported, and empowered to recover and succeed.
+                    </p>
+                  </div>
+                  <div className="bg-indigo-50/60 border border-indigo-100 rounded-2xl p-6 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-[#45499F] text-white flex items-center justify-center shadow-sm">
+                        <Target size={20} />
+                      </div>
+                      <h4 className="text-lg font-extrabold text-slate-900 tracking-tight">Our Mission</h4>
+                    </div>
+                    <p className="text-sm text-slate-700 leading-relaxed">
+                      To provide continuous guidance and timely intervention for students on probation through close advising, regular follow-up, and clear documentation, helping them overcome academic difficulties, improve their performance, and successfully get out of probation.
+                    </p>
+                  </div>
                 </div>
               </section>
             </div>
