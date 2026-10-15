@@ -133,6 +133,92 @@ function TeamMemberIcon({ name, photo }: { name: string; photo: string }) {
   );
 }
 
+// Sidebar card (Student / Parent access): shows the student's academic advisor with photo and contact options
+function AdvisorSidebarCard({ advisorName }: { advisorName: string }) {
+  const extensions = ['jpeg', 'jpg', 'png', 'webp'];
+  const slug = advisorName
+    .replace(/^(Prof\.|Dr\.)\s*/i, '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-');
+  const [extIndex, setExtIndex] = useState(0);
+  const failed = extIndex >= extensions.length;
+  const initials = advisorName
+    .replace(/^(Prof\.|Dr\.)\s*/i, '')
+    .split(' ')
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+  const phone = ADVISOR_PHONES[advisorName];
+  const email = ADVISOR_EMAILS[advisorName];
+
+  // reset the image fallback when the advisor changes
+  useEffect(() => {
+    setExtIndex(0);
+  }, [advisorName]);
+
+  return (
+    <div className="mt-4 p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center">
+        My Academic Advisor
+      </div>
+      <div className="flex flex-col items-center text-center gap-2">
+        {failed ? (
+          <div className="w-20 h-20 rounded-xl border-2 border-indigo-100 shadow-sm bg-indigo-50 text-[#45499F] flex items-center justify-center text-xl font-extrabold">
+            {initials}
+          </div>
+        ) : (
+          <img
+            key={extIndex}
+            src={`/images/${slug}.${extensions[extIndex]}`}
+            alt={advisorName}
+            onError={() => setExtIndex((i) => i + 1)}
+            className="w-20 h-20 object-cover rounded-xl border-2 border-indigo-100 shadow-sm bg-white"
+          />
+        )}
+        <p className="text-sm font-extrabold text-slate-900 leading-tight">{advisorName}</p>
+      </div>
+      {(phone || email) ? (
+        <div className="space-y-2">
+          {phone && (
+            <a
+              href={`tel:${phone}`}
+              className="flex items-center gap-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-xl transition-colors cursor-pointer"
+            >
+              <Phone size={14} className="text-[#45499F] shrink-0" />
+              <span className="truncate">{phone}</span>
+            </a>
+          )}
+          {phone && (
+            <a
+              href={`https://wa.me/${toWhatsAppNumber(phone)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-2 rounded-xl shadow-sm transition-colors cursor-pointer"
+            >
+              <MessageCircle size={14} className="shrink-0" />
+              Chat on WhatsApp
+            </a>
+          )}
+          {email && (
+            <a
+              href={`mailto:${email}`}
+              title={email}
+              className="flex items-center gap-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-[11px] font-bold px-3 py-2 rounded-xl transition-colors cursor-pointer"
+            >
+              <Mail size={14} className="text-[#45499F] shrink-0" />
+              <span className="truncate">{email}</span>
+            </a>
+          )}
+        </div>
+      ) : (
+        <p className="text-[11px] text-slate-400 text-center">Contact details not available yet.</p>
+      )}
+    </div>
+  );
+}
+
 export default function OnProbationSystem() {
   const [mounted, setMounted] = useState(false);
   const [currentView, setCurrentView] = useState('landing');
@@ -1702,7 +1788,7 @@ export default function OnProbationSystem() {
         </div>
       </header>
       <div className="flex flex-1 overflow-hidden">
-        <aside className="w-64 bg-white border-r border-slate-200 flex flex-col justify-between hidden md:flex shrink-0">
+        <aside className="w-64 bg-white border-r border-slate-200 flex flex-col justify-between hidden md:flex shrink-0 overflow-y-auto">
           <nav className="p-4 space-y-1">
             <div className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Navigation</div>
             {simulatedRole === 'Parent View' || simulatedRole === 'Student View' ? (
@@ -1717,6 +1803,7 @@ export default function OnProbationSystem() {
                   <Users size={18} />
                   <span>Student Portfolio</span>
                 </button>
+                <AdvisorSidebarCard advisorName={selectedStudentObj?.advisor || selectedAdvisor} />
               </>
             ) : simulatedRole === 'Documentation Team' ? (
               <>
