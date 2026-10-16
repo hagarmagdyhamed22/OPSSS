@@ -2484,7 +2484,7 @@ export default function OnProbationSystem() {
                       Documentation Team Portal (Master Audit)
                     </span>
                     <h2 className="text-3xl font-extrabold tracking-tight">
-                      Faculty Master Records: All Advisors & Students
+                      Welcome back, Documentation Team
                     </h2>
                   </div>
                   <div className="bg-indigo-950/50 p-4 rounded-2xl border border-indigo-400/30 text-center shrink-0">
