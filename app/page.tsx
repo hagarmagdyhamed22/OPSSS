@@ -1837,6 +1837,16 @@ export default function OnProbationSystem() {
                   <Calendar size={18} />
                   <span>Team Meetings</span>
                 </button>
+                <button
+                  onClick={() => handleNavClick('Advisors Information')}
+                  style={activeNav === 'Advisors Information' ? { backgroundColor: '#45499F' } : {}}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
+                    activeNav === 'Advisors Information' ? 'text-white shadow-md shadow-[#45499F]/25 font-bold' : 'hover:bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  <Phone size={18} />
+                  <span>Advisors Information</span>
+                </button>
               </>
             ) : (
               [
@@ -3161,6 +3171,82 @@ export default function OnProbationSystem() {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+            {/* ADVISORS INFORMATION VIEW */}
+            {activeNav === 'Advisors Information' && simulatedRole === 'Documentation Team' && (
+              <div className="space-y-6">
+                <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+                  <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                    <div>
+                      <h2 className="text-xl font-extrabold text-slate-900">Advisors Information</h2>
+                      <p className="text-xs text-slate-500 mt-0.5">Contact details and student load for every academic advisor.</p>
+                    </div>
+                    <span className="bg-indigo-50 text-[#45499F] text-xs font-bold px-3 py-1.5 rounded-full border border-indigo-100">
+                      {facultyAdvisors.length} Advisors
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead>
+                        <tr className="text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                          <th className="p-3">#</th>
+                          <th className="p-3">Advisor Name</th>
+                          <th className="p-3">Phone Number</th>
+                          <th className="p-3">WhatsApp</th>
+                          <th className="p-3">Email Address</th>
+                          <th className="p-3 text-center">Students Assigned</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {facultyAdvisors.map((adv, idx) => {
+                          const phone = ADVISOR_PHONES[adv.name];
+                          const email = ADVISOR_EMAILS[adv.name];
+                          return (
+                            <tr key={adv.name} className="hover:bg-slate-50 transition-colors">
+                              <td className="p-3 text-slate-400 font-semibold">{idx + 1}</td>
+                              <td className="p-3 font-bold text-slate-900 whitespace-nowrap">{adv.name}</td>
+                              <td className="p-3 font-semibold text-slate-600 whitespace-nowrap">
+                                {phone ? (
+                                  <a href={`tel:${phone}`} className="hover:text-[#45499F] hover:underline">{phone}</a>
+                                ) : (
+                                  <span className="text-slate-400">N/A</span>
+                                )}
+                              </td>
+                              <td className="p-3">
+                                {phone ? (
+                                  <a
+                                    href={`https://wa.me/${toWhatsAppNumber(phone)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm transition-colors whitespace-nowrap"
+                                  >
+                                    <MessageCircle size={13} />
+                                    Chat
+                                  </a>
+                                ) : (
+                                  <span className="text-slate-400">N/A</span>
+                                )}
+                              </td>
+                              <td className="p-3 font-semibold text-slate-600">
+                                {email ? (
+                                  <a href={`mailto:${email}`} className="hover:text-[#45499F] hover:underline">{email}</a>
+                                ) : (
+                                  <span className="text-slate-400">N/A</span>
+                                )}
+                              </td>
+                              <td className="p-3 text-center">
+                                <span className="inline-block min-w-[2rem] bg-indigo-50 text-[#45499F] font-extrabold text-xs px-2.5 py-1 rounded-full border border-indigo-100">
+                                  {adv.students.length}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
             )}
             {/* TEAM MEETINGS VIEW */}
