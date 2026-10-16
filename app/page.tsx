@@ -221,7 +221,7 @@ function AdvisorSidebarCard({ advisorName }: { advisorName: string }) {
 
 // ---------- Editable document sections (used by Certificates and Advisor Distribution) ----------
 type DocFile = { id: string; name: string; size: number; url: string };
-type DocSection = { id: string; title: string; notes: string; files: DocFile[] };
+type DocSection = { id: string; title: string; files: DocFile[] };
 
 function formatFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -233,41 +233,38 @@ function EditableDocSections({
   sections,
   setSections,
   allowAddSection = true,
-  emptyNotesHint = 'No notes yet. Click Edit to add some.',
 }: {
   sections: DocSection[];
   setSections: React.Dispatch<React.SetStateAction<DocSection[]>>;
   allowAddSection?: boolean;
-  emptyNotesHint?: string;
 }) {
   const [activeId, setActiveId] = useState(sections[0]?.id || '');
   const [editing, setEditing] = useState(false);
   const [draftTitle, setDraftTitle] = useState('');
-  const [draftNotes, setDraftNotes] = useState('');
+  const [renamingFileId, setRenamingFileId] = useState<string | null>(null);
+  const [draftFileName, setDraftFileName] = useState('');
 
   const active = sections.find((sec) => sec.id === activeId) || sections[0];
 
   const startEdit = () => {
     if (!active) return;
     setDraftTitle(active.title);
-    setDraftNotes(active.notes);
     setEditing(true);
   };
 
   const saveEdit = () => {
     if (!active) return;
     setSections((prev) =>
-      prev.map((sec) => (sec.id === active.id ? { ...sec, title: draftTitle.trim() || sec.title, notes: draftNotes } : sec))
+      prev.map((sec) => (sec.id === active.id ? { ...sec, title: draftTitle.trim() || sec.title } : sec))
     );
     setEditing(false);
   };
 
   const addSection = () => {
     const id = `sec-${Date.now()}`;
-    setSections((prev) => [...prev, { id, title: 'New Section', notes: '', files: [] }]);
+    setSections((prev) => [...prev, { id, title: 'New Section', files: [] }]);
     setActiveId(id);
     setDraftTitle('New Section');
-    setDraftNotes('');
     setEditing(true);
   };
 
@@ -308,6 +305,27 @@ function EditableDocSections({
     const target = active.files.find((f) => f.id === fileId);
     if (target) URL.revokeObjectURL(target.url);
     setSections((prev) => prev.map((sec) => (sec.id === active.id ? { ...sec, files: sec.files.filter((f) => f.id !== fileId) } : sec)));
+  };
+
+  const startRenameFile = (f: DocFile) => {
+    setRenamingFileId(f.id);
+    setDraftFileName(f.name);
+  };
+
+  const saveRenameFile = (f: DocFile) => {
+    if (!active) return;
+    let newName = draftFileName.trim();
+    if (newName) {
+      // keep the original extension if the new name has none, so the file still opens correctly
+      const oldExt = f.name.includes('.') ? f.name.slice(f.name.lastIndexOf('.')) : '';
+      if (oldExt && !newName.toLowerCase().endsWith(oldExt.toLowerCase())) newName += oldExt;
+      setSections((prev) =>
+        prev.map((sec) =>
+          sec.id === active.id ? { ...sec, files: sec.files.map((x) => (x.id === f.id ? { ...x, name: newName } : x)) } : sec
+        )
+      );
+    }
+    setRenamingFileId(null);
   };
 
   return (
@@ -392,20 +410,6 @@ function EditableDocSections({
             </div>
           </div>
 
-          {editing ? (
-            <textarea
-              value={draftNotes}
-              onChange={(e) => setDraftNotes(e.target.value)}
-              rows={6}
-              className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#45499F]/30"
-              placeholder="Write the content of this section here..."
-            />
-          ) : (
-            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap bg-white p-4 rounded-xl border border-slate-200">
-              {active.notes || <span className="text-slate-400">{emptyNotesHint}</span>}
-            </p>
-          )}
-
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
@@ -424,25 +428,54 @@ function EditableDocSections({
               <ul className="space-y-2">
                 {active.files.map((f) => (
                   <li key={f.id} className="flex items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3">
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
                       <FileText size={18} className="text-[#45499F] shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold text-slate-900 truncate">{f.name}</p>
+                      <div className="min-w-0 flex-1">
+                        {renamingFileId === f.id ? (
+                          <input
+                            autoFocus
+                            value={draftFileName}
+                            onChange={(e) => setDraftFileName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') saveRenameFile(f);
+                              if (e.key === 'Escape') setRenamingFileId(null);
+                            }}
+                            className="w-full px-2 py-1 border border-slate-300 rounded-lg text-sm font-bold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-[#45499F]/30"
+                          />
+                        ) : (
+                          <p className="text-sm font-bold text-slate-900 truncate">{f.name}</p>
+                        )}
                         <p className="text-[11px] text-slate-400">{formatFileSize(f.size)}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      {f.name.toLowerCase().endsWith('.pdf') && (
-                        <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-[#45499F] hover:underline">
-                          View
-                        </a>
+                      {renamingFileId === f.id ? (
+                        <>
+                          <button onClick={() => saveRenameFile(f)} title="Save name" className="text-emerald-600 hover:text-emerald-700 cursor-pointer">
+                            <Save size={16} />
+                          </button>
+                          <button onClick={() => setRenamingFileId(null)} title="Cancel" className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                            <X size={16} />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          {f.name.toLowerCase().endsWith('.pdf') && (
+                            <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-[#45499F] hover:underline">
+                              View
+                            </a>
+                          )}
+                          <a href={f.url} download={f.name} className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 hover:text-[#45499F]">
+                            <Download size={14} /> Download
+                          </a>
+                          <button onClick={() => startRenameFile(f)} title="Rename document" className="text-slate-400 hover:text-[#45499F] cursor-pointer">
+                            <Edit3 size={15} />
+                          </button>
+                          <button onClick={() => removeFile(f.id)} title="Remove document" className="text-slate-400 hover:text-red-600 cursor-pointer">
+                            <Trash2 size={15} />
+                          </button>
+                        </>
                       )}
-                      <a href={f.url} download={f.name} className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 hover:text-[#45499F]">
-                        <Download size={14} /> Download
-                      </a>
-                      <button onClick={() => removeFile(f.id)} title="Remove document" className="text-slate-400 hover:text-red-600 cursor-pointer">
-                        <Trash2 size={15} />
-                      </button>
                     </div>
                   </li>
                 ))}
@@ -560,12 +593,12 @@ export default function OnProbationSystem() {
   const [reportSelectedStudentId, setReportSelectedStudentId] = useState('');
   const [docTeamSearchQuery, setDocTeamSearchQuery] = useState('');
   const [certificateSections, setCertificateSections] = useState<DocSection[]>([
-    { id: 'cert-template', title: 'Certificates Template', notes: '', files: [] },
-    { id: 'cert-out-of-probation', title: 'Out of Probation Students Certificates 2026', notes: '', files: [] },
-    { id: 'cert-advisors', title: 'Advisors Certificates 2026', notes: '', files: [] },
+    { id: 'cert-template', title: 'Certificates Template', files: [] },
+    { id: 'cert-out-of-probation', title: 'Out of Probation Students Certificates 2026', files: [] },
+    { id: 'cert-advisors', title: 'Advisors Certificates 2026', files: [] },
   ]);
   const [distributionSections, setDistributionSections] = useState<DocSection[]>([
-    { id: 'dist-main', title: 'Advisor Distribution', notes: '', files: [] },
+    { id: 'dist-main', title: 'Advisor Distribution', files: [] },
   ]);
   const todayDateStr = (() => {
     const now = new Date();
@@ -3431,9 +3464,8 @@ export default function OnProbationSystem() {
                 <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
                   <div className="border-b border-slate-100 pb-4">
                     <h2 className="text-xl font-extrabold text-slate-900">Certificates</h2>
-                    <p className="text-xs text-slate-500 mt-0.5">Edit each section and attach the certificate documents (PDF or Word).</p>
                   </div>
-                  <EditableDocSections sections={certificateSections} setSections={setCertificateSections} emptyNotesHint="No notes yet. Click Edit to describe this certificate section." />
+                  <EditableDocSections sections={certificateSections} setSections={setCertificateSections} />
                 </div>
               </div>
             )}
@@ -3443,9 +3475,8 @@ export default function OnProbationSystem() {
                 <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
                   <div className="border-b border-slate-100 pb-4">
                     <h2 className="text-xl font-extrabold text-slate-900">Advisor Distribution</h2>
-                    <p className="text-xs text-slate-500 mt-0.5">Edit the distribution details and attach the distribution files (PDF or Word).</p>
                   </div>
-                  <EditableDocSections sections={distributionSections} setSections={setDistributionSections} emptyNotesHint="No notes yet. Click Edit to add the advisor distribution details." />
+                  <EditableDocSections sections={distributionSections} setSections={setDistributionSections} />
                 </div>
               </div>
             )}
