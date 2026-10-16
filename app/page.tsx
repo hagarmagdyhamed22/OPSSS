@@ -219,6 +219,242 @@ function AdvisorSidebarCard({ advisorName }: { advisorName: string }) {
   );
 }
 
+// ---------- Editable document sections (used by Certificates and Advisor Distribution) ----------
+type DocFile = { id: string; name: string; size: number; url: string };
+type DocSection = { id: string; title: string; notes: string; files: DocFile[] };
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function EditableDocSections({
+  sections,
+  setSections,
+  allowAddSection = true,
+  emptyNotesHint = 'No notes yet. Click Edit to add some.',
+}: {
+  sections: DocSection[];
+  setSections: React.Dispatch<React.SetStateAction<DocSection[]>>;
+  allowAddSection?: boolean;
+  emptyNotesHint?: string;
+}) {
+  const [activeId, setActiveId] = useState(sections[0]?.id || '');
+  const [editing, setEditing] = useState(false);
+  const [draftTitle, setDraftTitle] = useState('');
+  const [draftNotes, setDraftNotes] = useState('');
+
+  const active = sections.find((sec) => sec.id === activeId) || sections[0];
+
+  const startEdit = () => {
+    if (!active) return;
+    setDraftTitle(active.title);
+    setDraftNotes(active.notes);
+    setEditing(true);
+  };
+
+  const saveEdit = () => {
+    if (!active) return;
+    setSections((prev) =>
+      prev.map((sec) => (sec.id === active.id ? { ...sec, title: draftTitle.trim() || sec.title, notes: draftNotes } : sec))
+    );
+    setEditing(false);
+  };
+
+  const addSection = () => {
+    const id = `sec-${Date.now()}`;
+    setSections((prev) => [...prev, { id, title: 'New Section', notes: '', files: [] }]);
+    setActiveId(id);
+    setDraftTitle('New Section');
+    setDraftNotes('');
+    setEditing(true);
+  };
+
+  const deleteSection = () => {
+    if (!active) return;
+    if (!window.confirm(`Delete the section "${active.title}" and all of its documents?`)) return;
+    active.files.forEach((f) => URL.revokeObjectURL(f.url));
+    const remaining = sections.filter((sec) => sec.id !== active.id);
+    setSections(remaining);
+    setActiveId(remaining[0]?.id || '');
+    setEditing(false);
+  };
+
+  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!active) return;
+    const picked = Array.from(e.target.files || []);
+    const added: DocFile[] = [];
+    for (const file of picked) {
+      if (file.size > 15 * 1024 * 1024) {
+        alert(`"${file.name}" is larger than 15 MB and was skipped.`);
+        continue;
+      }
+      added.push({
+        id: `file-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        name: file.name,
+        size: file.size,
+        url: URL.createObjectURL(file),
+      });
+    }
+    if (added.length) {
+      setSections((prev) => prev.map((sec) => (sec.id === active.id ? { ...sec, files: [...sec.files, ...added] } : sec)));
+    }
+    e.target.value = '';
+  };
+
+  const removeFile = (fileId: string) => {
+    if (!active) return;
+    const target = active.files.find((f) => f.id === fileId);
+    if (target) URL.revokeObjectURL(target.url);
+    setSections((prev) => prev.map((sec) => (sec.id === active.id ? { ...sec, files: sec.files.filter((f) => f.id !== fileId) } : sec)));
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-2">
+        {sections.map((sec) => (
+          <button
+            key={sec.id}
+            onClick={() => {
+              setActiveId(sec.id);
+              setEditing(false);
+            }}
+            style={active?.id === sec.id ? { backgroundColor: '#45499F' } : {}}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+              active?.id === sec.id ? 'text-white shadow-md shadow-[#45499F]/25' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+            }`}
+          >
+            {sec.title}
+          </button>
+        ))}
+        {allowAddSection && (
+          <button
+            onClick={addSection}
+            className="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold border border-dashed border-slate-300 text-slate-500 hover:border-[#45499F] hover:text-[#45499F] transition-colors cursor-pointer"
+          >
+            <Plus size={14} /> Add Section
+          </button>
+        )}
+      </div>
+
+      {!active ? (
+        <div className="p-8 text-center text-sm text-slate-400 border border-dashed border-slate-200 rounded-2xl">
+          No sections yet. Click "Add Section" to create one.
+        </div>
+      ) : (
+        <div className="border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5 bg-slate-50/50">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            {editing ? (
+              <input
+                value={draftTitle}
+                onChange={(e) => setDraftTitle(e.target.value)}
+                className="flex-1 min-w-[200px] px-3 py-2 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-[#45499F]/30"
+                placeholder="Section title"
+              />
+            ) : (
+              <h3 className="text-lg font-extrabold text-slate-900">{active.title}</h3>
+            )}
+            <div className="flex items-center gap-2">
+              {editing ? (
+                <>
+                  <button
+                    onClick={saveEdit}
+                    className="inline-flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-2 rounded-xl cursor-pointer"
+                  >
+                    <Save size={14} /> Save
+                  </button>
+                  <button
+                    onClick={() => setEditing(false)}
+                    className="inline-flex items-center gap-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold px-3 py-2 rounded-xl cursor-pointer"
+                  >
+                    <X size={14} /> Cancel
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={startEdit}
+                    className="inline-flex items-center gap-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-xl cursor-pointer"
+                  >
+                    <Edit3 size={14} /> Edit
+                  </button>
+                  {allowAddSection && (
+                    <button
+                      onClick={deleteSection}
+                      className="inline-flex items-center gap-1.5 bg-white hover:bg-red-50 border border-slate-200 text-red-600 text-xs font-bold px-3 py-2 rounded-xl cursor-pointer"
+                    >
+                      <Trash2 size={14} /> Delete
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          {editing ? (
+            <textarea
+              value={draftNotes}
+              onChange={(e) => setDraftNotes(e.target.value)}
+              rows={6}
+              className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#45499F]/30"
+              placeholder="Write the content of this section here..."
+            />
+          ) : (
+            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap bg-white p-4 rounded-xl border border-slate-200">
+              {active.notes || <span className="text-slate-400">{emptyNotesHint}</span>}
+            </p>
+          )}
+
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                Documents ({active.files.length})
+              </h4>
+              <label className="inline-flex items-center gap-1.5 text-white text-xs font-bold px-3 py-2 rounded-xl cursor-pointer shadow-sm" style={{ backgroundColor: '#45499F' }}>
+                <Upload size={14} /> Add Document / PDF
+                <input type="file" multiple accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={handleUpload} className="hidden" />
+              </label>
+            </div>
+            {active.files.length === 0 ? (
+              <div className="p-6 text-center text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl bg-white">
+                No documents added to this section yet. Upload a PDF or Word file.
+              </div>
+            ) : (
+              <ul className="space-y-2">
+                {active.files.map((f) => (
+                  <li key={f.id} className="flex items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <FileText size={18} className="text-[#45499F] shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-slate-900 truncate">{f.name}</p>
+                        <p className="text-[11px] text-slate-400">{formatFileSize(f.size)}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {f.name.toLowerCase().endsWith('.pdf') && (
+                        <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-[#45499F] hover:underline">
+                          View
+                        </a>
+                      )}
+                      <a href={f.url} download={f.name} className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 hover:text-[#45499F]">
+                        <Download size={14} /> Download
+                      </a>
+                      <button onClick={() => removeFile(f.id)} title="Remove document" className="text-slate-400 hover:text-red-600 cursor-pointer">
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function OnProbationSystem() {
   const [mounted, setMounted] = useState(false);
   const [currentView, setCurrentView] = useState('landing');
@@ -323,6 +559,14 @@ export default function OnProbationSystem() {
   const [evaluatingStudentId, setEvaluatingStudentId] = useState(null);
   const [reportSelectedStudentId, setReportSelectedStudentId] = useState('');
   const [docTeamSearchQuery, setDocTeamSearchQuery] = useState('');
+  const [certificateSections, setCertificateSections] = useState<DocSection[]>([
+    { id: 'cert-template', title: 'Certificates Template', notes: '', files: [] },
+    { id: 'cert-out-of-probation', title: 'Out of Probation Students Certificates 2026', notes: '', files: [] },
+    { id: 'cert-advisors', title: 'Advisors Certificates 2026', notes: '', files: [] },
+  ]);
+  const [distributionSections, setDistributionSections] = useState<DocSection[]>([
+    { id: 'dist-main', title: 'Advisor Distribution', notes: '', files: [] },
+  ]);
   const todayDateStr = (() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -1847,6 +2091,26 @@ export default function OnProbationSystem() {
                   <Phone size={18} />
                   <span>Advisors Information</span>
                 </button>
+                <button
+                  onClick={() => handleNavClick('Certificates')}
+                  style={activeNav === 'Certificates' ? { backgroundColor: '#45499F' } : {}}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
+                    activeNav === 'Certificates' ? 'text-white shadow-md shadow-[#45499F]/25 font-bold' : 'hover:bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  <Award size={18} />
+                  <span>Certificates</span>
+                </button>
+                <button
+                  onClick={() => handleNavClick('Advisor Distribution')}
+                  style={activeNav === 'Advisor Distribution' ? { backgroundColor: '#45499F' } : {}}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
+                    activeNav === 'Advisor Distribution' ? 'text-white shadow-md shadow-[#45499F]/25 font-bold' : 'hover:bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  <FolderKanban size={18} />
+                  <span>Advisor Distribution</span>
+                </button>
               </>
             ) : (
               [
@@ -1967,18 +2231,6 @@ export default function OnProbationSystem() {
               <div className="space-y-6">
                 <div style={{ backgroundColor: '#45499F' }} className="rounded-3xl p-8 text-white shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                   <div className="flex items-center gap-4">
-                    {selectedAdvisor === 'Hagar Magdy' && (
-                      <div className="w-28 h-28 rounded-2xl bg-white/10 border border-white/20 overflow-hidden flex-shrink-0">
-                        <img
-                          src="/images/hagar-magdy.jpg"
-                          alt="Profile Picture"
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = "/images/hagar-magdy.jpeg";
-                          }}
-                        />
-                      </div>
-                    )}
                     <div className="flex items-center gap-4">
   {(() => {
     const advisorImages = {
@@ -3171,6 +3423,30 @@ export default function OnProbationSystem() {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+            {/* CERTIFICATES VIEW */}
+            {activeNav === 'Certificates' && simulatedRole === 'Documentation Team' && (
+              <div className="space-y-6">
+                <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+                  <div className="border-b border-slate-100 pb-4">
+                    <h2 className="text-xl font-extrabold text-slate-900">Certificates</h2>
+                    <p className="text-xs text-slate-500 mt-0.5">Edit each section and attach the certificate documents (PDF or Word).</p>
+                  </div>
+                  <EditableDocSections sections={certificateSections} setSections={setCertificateSections} emptyNotesHint="No notes yet. Click Edit to describe this certificate section." />
+                </div>
+              </div>
+            )}
+            {/* ADVISOR DISTRIBUTION VIEW */}
+            {activeNav === 'Advisor Distribution' && simulatedRole === 'Documentation Team' && (
+              <div className="space-y-6">
+                <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+                  <div className="border-b border-slate-100 pb-4">
+                    <h2 className="text-xl font-extrabold text-slate-900">Advisor Distribution</h2>
+                    <p className="text-xs text-slate-500 mt-0.5">Edit the distribution details and attach the distribution files (PDF or Word).</p>
+                  </div>
+                  <EditableDocSections sections={distributionSections} setSections={setDistributionSections} emptyNotesHint="No notes yet. Click Edit to add the advisor distribution details." />
+                </div>
               </div>
             )}
             {/* ADVISORS INFORMATION VIEW */}
