@@ -219,9 +219,13 @@ function AdvisorSidebarCard({ advisorName }: { advisorName: string }) {
   );
 }
 
-// ---------- Editable document sections (used by Certificates and Advisor Distribution) ----------
+// ---------- Editable, persistent document sections (Certificates, Advisor Distribution, custom pages) ----------
 type DocFile = { id: string; name: string; size: number; url: string };
-type DocSection = { id: string; title: string; files: DocFile[] };
+type DocNode = { id: string; title: string; files: DocFile[]; children: DocNode[]; isNew?: boolean };
+type CustomDocPage = { id: string; title: string; sections: DocNode[] };
+
+const newDocId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+const makeNode = (title: string, id?: string, isNew = false): DocNode => ({ id: id || newDocId('sec'), title, files: [], children: [], isNew });
 
 function formatFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -229,57 +233,165 @@ function formatFileSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function EditableDocSections({
-  sections,
-  setSections,
-  allowAddSection = true,
+// Uploaded files are stored in the browser's IndexedDB so they survive page refreshes
+const FILE_DB_NAME = 'probation-docs-files';
+const FILE_STORE = 'files';
+
+function openFileDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(FILE_DB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(FILE_STORE);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function saveFileBlob(id: string, blob: Blob) {
+  try {
+    const db = await openFileDB();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(FILE_STORE, 'readwrite');
+      tx.objectStore(FILE_STORE).put(blob, id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    console.error('Could not store file for later:', err);
+  }
+}
+async function loadFileBlob(id: string): Promise<Blob | undefined> {
+  try {
+    const db = await openFileDB();
+    return await new Promise<Blob | undefined>((resolve, reject) => {
+      const req = db.transaction(FILE_STORE, 'readonly').objectStore(FILE_STORE).get(id);
+      req.onsuccess = () => resolve(req.result as Blob | undefined);
+      req.onerror = () => reject(req.error);
+    });
+  } catch {
+    return undefined;
+  }
+}
+async function deleteFileBlob(id: string) {
+  try {
+    const db = await openFileDB();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(FILE_STORE, 'readwrite');
+      tx.objectStore(FILE_STORE).delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
+// Gives every stored file a fresh object URL after the page loads
+async function hydrateFiles(node: any): Promise<void> {
+  if (Array.isArray(node)) {
+    for (const n of node) await hydrateFiles(n);
+    return;
+  }
+  if (node && typeof node === 'object') {
+    if (Array.isArray(node.files)) {
+      for (const f of node.files) {
+        const blob = await loadFileBlob(f.id);
+        f.url = blob ? URL.createObjectURL(blob) : '';
+      }
+    }
+    for (const k of Object.keys(node)) {
+      if (k !== 'files') await hydrateFiles(node[k]);
+    }
+  }
+}
+
+// Same as useState, but saved in the browser (localStorage) and restored on the next visit
+function usePersistentDocs<T>(key: string, defaults: T): [T, React.Dispatch<React.SetStateAction<T>>] {
+  const [value, setValue] = useState<T>(defaults);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          await hydrateFiles(parsed);
+          if (!cancelled) setValue(parsed);
+        }
+      } catch (err) {
+        console.error('Could not restore saved documents:', err);
+      }
+      if (!cancelled) setLoaded(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [key]);
+
+  useEffect(() => {
+    if (!loaded) return;
+    try {
+      localStorage.setItem(key, JSON.stringify(value, (k, v) => (k === 'url' ? undefined : v)));
+    } catch (err) {
+      console.error('Could not save documents:', err);
+    }
+  }, [key, value, loaded]);
+
+  return [value, setValue];
+}
+
+function mapTree(nodes: DocNode[], id: string, fn: (n: DocNode) => DocNode): DocNode[] {
+  return nodes.map((n) => (n.id === id ? fn(n) : { ...n, children: mapTree(n.children, id, fn) }));
+}
+function removeFromTree(nodes: DocNode[], id: string): DocNode[] {
+  return nodes.filter((n) => n.id !== id).map((n) => ({ ...n, children: removeFromTree(n.children, id) }));
+}
+function collectFiles(node: DocNode): DocFile[] {
+  return [...node.files, ...node.children.flatMap(collectFiles)];
+}
+function disposeFiles(files: DocFile[]) {
+  files.forEach((f) => {
+    if (f.url) URL.revokeObjectURL(f.url);
+    deleteFileBlob(f.id);
+  });
+}
+
+function DocNodeCard({
+  node,
+  depth,
+  setNodes,
 }: {
-  sections: DocSection[];
-  setSections: React.Dispatch<React.SetStateAction<DocSection[]>>;
-  allowAddSection?: boolean;
+  node: DocNode;
+  depth: number;
+  setNodes: React.Dispatch<React.SetStateAction<DocNode[]>>;
 }) {
-  const [activeId, setActiveId] = useState(sections[0]?.id || '');
-  const [editing, setEditing] = useState(false);
-  const [draftTitle, setDraftTitle] = useState('');
+  const [editing, setEditing] = useState(!!node.isNew);
+  const [draftTitle, setDraftTitle] = useState(node.title);
   const [renamingFileId, setRenamingFileId] = useState<string | null>(null);
   const [draftFileName, setDraftFileName] = useState('');
 
-  const active = sections.find((sec) => sec.id === activeId) || sections[0];
+  const update = (fn: (n: DocNode) => DocNode) => setNodes((prev) => mapTree(prev, node.id, fn));
 
-  const startEdit = () => {
-    if (!active) return;
-    setDraftTitle(active.title);
-    setEditing(true);
+  const saveTitle = () => {
+    update((n) => ({ ...n, title: draftTitle.trim() || n.title, isNew: false }));
+    setEditing(false);
   };
-
-  const saveEdit = () => {
-    if (!active) return;
-    setSections((prev) =>
-      prev.map((sec) => (sec.id === active.id ? { ...sec, title: draftTitle.trim() || sec.title } : sec))
-    );
+  const cancelTitle = () => {
+    update((n) => ({ ...n, isNew: false }));
+    setDraftTitle(node.title);
     setEditing(false);
   };
 
-  const addSection = () => {
-    const id = `sec-${Date.now()}`;
-    setSections((prev) => [...prev, { id, title: 'New Section', files: [] }]);
-    setActiveId(id);
-    setDraftTitle('New Section');
-    setEditing(true);
+  const deleteNode = () => {
+    const extra = node.children.length ? ' and everything inside it' : '';
+    if (!window.confirm(`Delete "${node.title}"${extra}? This cannot be undone.`)) return;
+    disposeFiles(collectFiles(node));
+    setNodes((prev) => removeFromTree(prev, node.id));
   };
 
-  const deleteSection = () => {
-    if (!active) return;
-    if (!window.confirm(`Delete the section "${active.title}" and all of its documents?`)) return;
-    active.files.forEach((f) => URL.revokeObjectURL(f.url));
-    const remaining = sections.filter((sec) => sec.id !== active.id);
-    setSections(remaining);
-    setActiveId(remaining[0]?.id || '');
-    setEditing(false);
-  };
+  const addSubsection = () => update((n) => ({ ...n, children: [...n.children, makeNode('New Subsection', undefined, true)] }));
 
   const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!active) return;
     const picked = Array.from(e.target.files || []);
     const added: DocFile[] = [];
     for (const file of picked) {
@@ -287,178 +399,139 @@ function EditableDocSections({
         alert(`"${file.name}" is larger than 15 MB and was skipped.`);
         continue;
       }
-      added.push({
-        id: `file-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        name: file.name,
-        size: file.size,
-        url: URL.createObjectURL(file),
-      });
+      const id = newDocId('file');
+      saveFileBlob(id, file);
+      added.push({ id, name: file.name, size: file.size, url: URL.createObjectURL(file) });
     }
-    if (added.length) {
-      setSections((prev) => prev.map((sec) => (sec.id === active.id ? { ...sec, files: [...sec.files, ...added] } : sec)));
-    }
+    if (added.length) update((n) => ({ ...n, files: [...n.files, ...added] }));
     e.target.value = '';
   };
 
-  const removeFile = (fileId: string) => {
-    if (!active) return;
-    const target = active.files.find((f) => f.id === fileId);
-    if (target) URL.revokeObjectURL(target.url);
-    setSections((prev) => prev.map((sec) => (sec.id === active.id ? { ...sec, files: sec.files.filter((f) => f.id !== fileId) } : sec)));
-  };
-
-  const startRenameFile = (f: DocFile) => {
-    setRenamingFileId(f.id);
-    setDraftFileName(f.name);
+  const removeFile = (f: DocFile) => {
+    if (!window.confirm(`Delete the document "${f.name}"?`)) return;
+    disposeFiles([f]);
+    update((n) => ({ ...n, files: n.files.filter((x) => x.id !== f.id) }));
   };
 
   const saveRenameFile = (f: DocFile) => {
-    if (!active) return;
     let newName = draftFileName.trim();
     if (newName) {
       // keep the original extension if the new name has none, so the file still opens correctly
       const oldExt = f.name.includes('.') ? f.name.slice(f.name.lastIndexOf('.')) : '';
       if (oldExt && !newName.toLowerCase().endsWith(oldExt.toLowerCase())) newName += oldExt;
-      setSections((prev) =>
-        prev.map((sec) =>
-          sec.id === active.id ? { ...sec, files: sec.files.map((x) => (x.id === f.id ? { ...x, name: newName } : x)) } : sec
-        )
-      );
+      update((n) => ({ ...n, files: n.files.map((x) => (x.id === f.id ? { ...x, name: newName } : x)) }));
     }
     setRenamingFileId(null);
   };
 
+  const isTop = depth === 0;
+
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center gap-2">
-        {sections.map((sec) => (
-          <button
-            key={sec.id}
-            onClick={() => {
-              setActiveId(sec.id);
-              setEditing(false);
+    <div
+      className={`rounded-2xl space-y-4 ${
+        isTop ? 'border border-slate-200 p-5 sm:p-6 bg-slate-50/50' : 'border border-slate-200 border-l-4 border-l-[#45499F] p-4 bg-white'
+      }`}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        {editing ? (
+          <input
+            autoFocus
+            value={draftTitle}
+            onChange={(e) => setDraftTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') saveTitle();
+              if (e.key === 'Escape') cancelTitle();
             }}
-            style={active?.id === sec.id ? { backgroundColor: '#45499F' } : {}}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
-              active?.id === sec.id ? 'text-white shadow-md shadow-[#45499F]/25' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
-            }`}
-          >
-            {sec.title}
-          </button>
-        ))}
-        {allowAddSection && (
-          <button
-            onClick={addSection}
-            className="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold border border-dashed border-slate-300 text-slate-500 hover:border-[#45499F] hover:text-[#45499F] transition-colors cursor-pointer"
-          >
-            <Plus size={14} /> Add Section
-          </button>
+            className="flex-1 min-w-[200px] px-3 py-2 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-[#45499F]/30"
+            placeholder="Title"
+          />
+        ) : (
+          <h3 className={`${isTop ? 'text-lg' : 'text-sm'} font-extrabold text-slate-900`}>{node.title}</h3>
         )}
+        <div className="flex items-center gap-2">
+          {editing ? (
+            <>
+              <button onClick={saveTitle} className="inline-flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-2 rounded-xl cursor-pointer">
+                <Save size={14} /> Save
+              </button>
+              <button onClick={cancelTitle} className="inline-flex items-center gap-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold px-3 py-2 rounded-xl cursor-pointer">
+                <X size={14} /> Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => {
+                  setDraftTitle(node.title);
+                  setEditing(true);
+                }}
+                className="inline-flex items-center gap-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-xl cursor-pointer"
+              >
+                <Edit3 size={14} /> Edit
+              </button>
+              <button onClick={deleteNode} className="inline-flex items-center gap-1.5 bg-white hover:bg-red-50 border border-slate-200 text-red-600 text-xs font-bold px-3 py-2 rounded-xl cursor-pointer">
+                <Trash2 size={14} /> Delete
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
-      {!active ? (
-        <div className="p-8 text-center text-sm text-slate-400 border border-dashed border-slate-200 rounded-2xl">
-          No sections yet. Click "Add Section" to create one.
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Documents ({node.files.length})</h4>
+          <label className="inline-flex items-center gap-1.5 text-white text-xs font-bold px-3 py-2 rounded-xl cursor-pointer shadow-sm" style={{ backgroundColor: '#45499F' }}>
+            <Upload size={14} /> Add Document / PDF
+            <input
+              type="file"
+              multiple
+              accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              onChange={handleUpload}
+              className="hidden"
+            />
+          </label>
         </div>
-      ) : (
-        <div className="border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5 bg-slate-50/50">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            {editing ? (
-              <input
-                value={draftTitle}
-                onChange={(e) => setDraftTitle(e.target.value)}
-                className="flex-1 min-w-[200px] px-3 py-2 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-[#45499F]/30"
-                placeholder="Section title"
-              />
-            ) : (
-              <h3 className="text-lg font-extrabold text-slate-900">{active.title}</h3>
-            )}
-            <div className="flex items-center gap-2">
-              {editing ? (
-                <>
-                  <button
-                    onClick={saveEdit}
-                    className="inline-flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-2 rounded-xl cursor-pointer"
-                  >
-                    <Save size={14} /> Save
-                  </button>
-                  <button
-                    onClick={() => setEditing(false)}
-                    className="inline-flex items-center gap-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold px-3 py-2 rounded-xl cursor-pointer"
-                  >
-                    <X size={14} /> Cancel
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    onClick={startEdit}
-                    className="inline-flex items-center gap-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-xl cursor-pointer"
-                  >
-                    <Edit3 size={14} /> Edit
-                  </button>
-                  {allowAddSection && (
-                    <button
-                      onClick={deleteSection}
-                      className="inline-flex items-center gap-1.5 bg-white hover:bg-red-50 border border-slate-200 text-red-600 text-xs font-bold px-3 py-2 rounded-xl cursor-pointer"
-                    >
-                      <Trash2 size={14} /> Delete
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
+        {node.files.length === 0 ? (
+          <div className="p-5 text-center text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl bg-white">
+            No documents here yet. Upload a PDF or Word file.
           </div>
-
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                Documents ({active.files.length})
-              </h4>
-              <label className="inline-flex items-center gap-1.5 text-white text-xs font-bold px-3 py-2 rounded-xl cursor-pointer shadow-sm" style={{ backgroundColor: '#45499F' }}>
-                <Upload size={14} /> Add Document / PDF
-                <input type="file" multiple accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={handleUpload} className="hidden" />
-              </label>
-            </div>
-            {active.files.length === 0 ? (
-              <div className="p-6 text-center text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl bg-white">
-                No documents added to this section yet. Upload a PDF or Word file.
-              </div>
-            ) : (
-              <ul className="space-y-2">
-                {active.files.map((f) => (
-                  <li key={f.id} className="flex items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3">
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <FileText size={18} className="text-[#45499F] shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        {renamingFileId === f.id ? (
-                          <input
-                            autoFocus
-                            value={draftFileName}
-                            onChange={(e) => setDraftFileName(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') saveRenameFile(f);
-                              if (e.key === 'Escape') setRenamingFileId(null);
-                            }}
-                            className="w-full px-2 py-1 border border-slate-300 rounded-lg text-sm font-bold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-[#45499F]/30"
-                          />
-                        ) : (
-                          <p className="text-sm font-bold text-slate-900 truncate">{f.name}</p>
-                        )}
-                        <p className="text-[11px] text-slate-400">{formatFileSize(f.size)}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {renamingFileId === f.id ? (
-                        <>
-                          <button onClick={() => saveRenameFile(f)} title="Save name" className="text-emerald-600 hover:text-emerald-700 cursor-pointer">
-                            <Save size={16} />
-                          </button>
-                          <button onClick={() => setRenamingFileId(null)} title="Cancel" className="text-slate-400 hover:text-slate-600 cursor-pointer">
-                            <X size={16} />
-                          </button>
-                        </>
-                      ) : (
+        ) : (
+          <ul className="space-y-2">
+            {node.files.map((f) => (
+              <li key={f.id} className="flex items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <FileText size={18} className="text-[#45499F] shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    {renamingFileId === f.id ? (
+                      <input
+                        autoFocus
+                        value={draftFileName}
+                        onChange={(e) => setDraftFileName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') saveRenameFile(f);
+                          if (e.key === 'Escape') setRenamingFileId(null);
+                        }}
+                        className="w-full px-2 py-1 border border-slate-300 rounded-lg text-sm font-bold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-[#45499F]/30"
+                      />
+                    ) : (
+                      <p className="text-sm font-bold text-slate-900 truncate">{f.name}</p>
+                    )}
+                    <p className="text-[11px] text-slate-400">{formatFileSize(f.size)}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {renamingFileId === f.id ? (
+                    <>
+                      <button onClick={() => saveRenameFile(f)} title="Save name" className="text-emerald-600 hover:text-emerald-700 cursor-pointer">
+                        <Save size={16} />
+                      </button>
+                      <button onClick={() => setRenamingFileId(null)} title="Cancel" className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                        <X size={16} />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {f.url ? (
                         <>
                           {f.name.toLowerCase().endsWith('.pdf') && (
                             <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-[#45499F] hover:underline">
@@ -468,22 +541,180 @@ function EditableDocSections({
                           <a href={f.url} download={f.name} className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 hover:text-[#45499F]">
                             <Download size={14} /> Download
                           </a>
-                          <button onClick={() => startRenameFile(f)} title="Rename document" className="text-slate-400 hover:text-[#45499F] cursor-pointer">
-                            <Edit3 size={15} />
-                          </button>
-                          <button onClick={() => removeFile(f.id)} title="Remove document" className="text-slate-400 hover:text-red-600 cursor-pointer">
-                            <Trash2 size={15} />
-                          </button>
                         </>
+                      ) : (
+                        <span className="text-[11px] text-slate-400">File unavailable</span>
                       )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                      <button
+                        onClick={() => {
+                          setRenamingFileId(f.id);
+                          setDraftFileName(f.name);
+                        }}
+                        title="Rename document"
+                        className="text-slate-400 hover:text-[#45499F] cursor-pointer"
+                      >
+                        <Edit3 size={15} />
+                      </button>
+                      <button onClick={() => removeFile(f)} title="Delete document" className="text-slate-400 hover:text-red-600 cursor-pointer">
+                        <Trash2 size={15} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {node.children.length > 0 && (
+        <div className="space-y-3 pt-1">
+          {node.children.map((child) => (
+            <DocNodeCard key={child.id} node={child} depth={depth + 1} setNodes={setNodes} />
+          ))}
+        </div>
+      )}
+
+      <button
+        onClick={addSubsection}
+        className="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold border border-dashed border-slate-300 text-slate-500 hover:border-[#45499F] hover:text-[#45499F] transition-colors cursor-pointer"
+      >
+        <Plus size={14} /> Add Subsection
+      </button>
+    </div>
+  );
+}
+
+function EditableDocSections({
+  sections,
+  setSections,
+}: {
+  sections: DocNode[];
+  setSections: React.Dispatch<React.SetStateAction<DocNode[]>>;
+}) {
+  const [activeId, setActiveId] = useState('');
+  const active = sections.find((sec) => sec.id === activeId) || sections[0];
+
+  const addSection = () => {
+    const node = makeNode('New Section', undefined, true);
+    setSections((prev) => [...prev, node]);
+    setActiveId(node.id);
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-2">
+        {sections.map((sec) => (
+          <button
+            key={sec.id}
+            onClick={() => setActiveId(sec.id)}
+            style={active?.id === sec.id ? { backgroundColor: '#45499F' } : {}}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+              active?.id === sec.id ? 'text-white shadow-md shadow-[#45499F]/25' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+            }`}
+          >
+            {sec.title}
+          </button>
+        ))}
+        <button
+          onClick={addSection}
+          className="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold border border-dashed border-slate-300 text-slate-500 hover:border-[#45499F] hover:text-[#45499F] transition-colors cursor-pointer"
+        >
+          <Plus size={14} /> Add Section
+        </button>
+      </div>
+
+      {active ? (
+        <DocNodeCard key={active.id} node={active} depth={0} setNodes={setSections} />
+      ) : (
+        <div className="p-8 text-center text-sm text-slate-400 border border-dashed border-slate-200 rounded-2xl">
+          No sections yet. Click "Add Section" to create one.
+        </div>
+      )}
+    </div>
+  );
+}
+
+// A whole extra page the Documentation Team adds from the left sidebar
+function CustomDocPageView({
+  page,
+  setPages,
+  onDeleted,
+}: {
+  page: CustomDocPage;
+  setPages: React.Dispatch<React.SetStateAction<CustomDocPage[]>>;
+  onDeleted: () => void;
+}) {
+  const [renaming, setRenaming] = useState(false);
+  const [draft, setDraft] = useState(page.title);
+
+  const setSections: React.Dispatch<React.SetStateAction<DocNode[]>> = (updater) =>
+    setPages((prev) =>
+      prev.map((pg) =>
+        pg.id === page.id ? { ...pg, sections: typeof updater === 'function' ? (updater as (n: DocNode[]) => DocNode[])(pg.sections) : updater } : pg
+      )
+    );
+
+  const saveName = () => {
+    setPages((prev) => prev.map((pg) => (pg.id === page.id ? { ...pg, title: draft.trim() || pg.title } : pg)));
+    setRenaming(false);
+  };
+
+  const deletePage = () => {
+    if (!window.confirm(`Delete the page "${page.title}" and everything inside it? This cannot be undone.`)) return;
+    disposeFiles(page.sections.flatMap(collectFiles));
+    setPages((prev) => prev.filter((pg) => pg.id !== page.id));
+    onDeleted();
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          {renaming ? (
+            <input
+              autoFocus
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') saveName();
+                if (e.key === 'Escape') setRenaming(false);
+              }}
+              className="flex-1 min-w-[200px] px-3 py-2 border border-slate-300 rounded-xl text-lg font-extrabold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-[#45499F]/30"
+            />
+          ) : (
+            <h2 className="text-xl font-extrabold text-slate-900">{page.title}</h2>
+          )}
+          <div className="flex items-center gap-2">
+            {renaming ? (
+              <>
+                <button onClick={saveName} className="inline-flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-2 rounded-xl cursor-pointer">
+                  <Save size={14} /> Save
+                </button>
+                <button onClick={() => setRenaming(false)} className="inline-flex items-center gap-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold px-3 py-2 rounded-xl cursor-pointer">
+                  <X size={14} /> Cancel
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => {
+                    setDraft(page.title);
+                    setRenaming(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-xl cursor-pointer"
+                >
+                  <Edit3 size={14} /> Rename Page
+                </button>
+                <button onClick={deletePage} className="inline-flex items-center gap-1.5 bg-white hover:bg-red-50 border border-slate-200 text-red-600 text-xs font-bold px-3 py-2 rounded-xl cursor-pointer">
+                  <Trash2 size={14} /> Delete Page
+                </button>
+              </>
             )}
           </div>
         </div>
-      )}
+        <EditableDocSections sections={page.sections} setSections={setSections} />
+      </div>
     </div>
   );
 }
@@ -592,14 +823,18 @@ export default function OnProbationSystem() {
   const [evaluatingStudentId, setEvaluatingStudentId] = useState(null);
   const [reportSelectedStudentId, setReportSelectedStudentId] = useState('');
   const [docTeamSearchQuery, setDocTeamSearchQuery] = useState('');
-  const [certificateSections, setCertificateSections] = useState<DocSection[]>([
-    { id: 'cert-template', title: 'Certificates Template', files: [] },
-    { id: 'cert-out-of-probation', title: 'Out of Probation Students Certificates 2026', files: [] },
-    { id: 'cert-advisors', title: 'Advisors Certificates 2026', files: [] },
+  // Saved in the browser: nothing here is removed unless it is deleted manually
+  const [certificateSections, setCertificateSections] = usePersistentDocs<DocNode[]>('docs:certificates', [
+    makeNode('Certificates Template', 'cert-template'),
+    makeNode('Out of Probation Students Certificates', 'cert-out-of-probation'),
+    makeNode('Advisors Certificates', 'cert-advisors'),
   ]);
-  const [distributionSections, setDistributionSections] = useState<DocSection[]>([
-    { id: 'dist-main', title: 'Advisor Distribution', files: [] },
+  const [distributionSections, setDistributionSections] = usePersistentDocs<DocNode[]>('docs:distribution', [
+    makeNode('Advisor Distribution', 'dist-main'),
   ]);
+  const [customDocPages, setCustomDocPages] = usePersistentDocs<CustomDocPage[]>('docs:customPages', []);
+  const [addingDocPage, setAddingDocPage] = useState(false);
+  const [newDocPageName, setNewDocPageName] = useState('');
   const todayDateStr = (() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -1549,6 +1784,15 @@ export default function OnProbationSystem() {
       }))
     );
   };
+  const addDocPage = () => {
+    const title = newDocPageName.trim();
+    if (!title) return;
+    const id = newDocId('page');
+    setCustomDocPages((prev) => [...prev, { id, title, sections: [makeNode(title)] }]);
+    setNewDocPageName('');
+    setAddingDocPage(false);
+    setActiveNav(`custom:${id}`);
+  };
   const handleNavClick = (name) => {
     setActiveNav(name);
     setEvaluatingStudentId(null);
@@ -2144,6 +2388,58 @@ export default function OnProbationSystem() {
                   <FolderKanban size={18} />
                   <span>Advisor Distribution</span>
                 </button>
+                {customDocPages.map((pg) => (
+                  <button
+                    key={pg.id}
+                    onClick={() => handleNavClick(`custom:${pg.id}`)}
+                    style={activeNav === `custom:${pg.id}` ? { backgroundColor: '#45499F' } : {}}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
+                      activeNav === `custom:${pg.id}` ? 'text-white shadow-md shadow-[#45499F]/25 font-bold' : 'hover:bg-slate-100 text-slate-600'
+                    }`}
+                  >
+                    <FileText size={18} className="shrink-0" />
+                    <span className="truncate text-left">{pg.title}</span>
+                  </button>
+                ))}
+                {addingDocPage ? (
+                  <div className="p-2 space-y-2 bg-slate-50 border border-slate-200 rounded-xl">
+                    <input
+                      autoFocus
+                      value={newDocPageName}
+                      onChange={(e) => setNewDocPageName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') addDocPage();
+                        if (e.key === 'Escape') {
+                          setAddingDocPage(false);
+                          setNewDocPageName('');
+                        }
+                      }}
+                      placeholder="Section name"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-[#45499F]/30"
+                    />
+                    <div className="flex gap-2">
+                      <button onClick={addDocPage} className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold py-1.5 rounded-lg cursor-pointer">
+                        Add
+                      </button>
+                      <button
+                        onClick={() => {
+                          setAddingDocPage(false);
+                          setNewDocPageName('');
+                        }}
+                        className="flex-1 bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold py-1.5 rounded-lg cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setAddingDocPage(true)}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold border border-dashed border-slate-300 text-slate-500 hover:border-[#45499F] hover:text-[#45499F] transition-colors cursor-pointer"
+                  >
+                    <Plus size={14} /> Add Section
+                  </button>
+                )}
               </>
             ) : (
               [
@@ -3480,6 +3776,18 @@ export default function OnProbationSystem() {
                 </div>
               </div>
             )}
+            {/* CUSTOM DOCUMENTATION PAGES */}
+            {simulatedRole === 'Documentation Team' &&
+              customDocPages.map((pg) =>
+                activeNav === `custom:${pg.id}` ? (
+                  <CustomDocPageView
+                    key={pg.id}
+                    page={pg}
+                    setPages={setCustomDocPages}
+                    onDeleted={() => setActiveNav('Documentation Overview')}
+                  />
+                ) : null
+              )}
             {/* ADVISORS INFORMATION VIEW */}
             {activeNav === 'Advisors Information' && simulatedRole === 'Documentation Team' && (
               <div className="space-y-6">
