@@ -220,7 +220,7 @@ function AdvisorSidebarCard({ advisorName }: { advisorName: string }) {
 }
 
 // ---------- Editable, persistent document sections (Certificates, Advisor Distribution, custom pages) ----------
-type DocFile = { id: string; name: string; size: number; url: string };
+type DocFile = { id: string; name: string; size: number; url: string; path?: string };
 type DocNode = { id: string; title: string; files: DocFile[]; children: DocNode[]; isNew?: boolean };
 type CustomDocPage = { id: string; title: string; sections: DocNode[] };
 
@@ -284,7 +284,75 @@ async function deleteFileBlob(id: string) {
   }
 }
 
-// Gives every stored file a fresh object URL after the page loads
+// ---------- Shared storage (Supabase) so the same data shows on every device ----------
+// Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY (see setup notes). Without them, data stays in this browser only.
+const SB_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
+const SB_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const REMOTE_ENABLED = !!(SB_URL && SB_KEY);
+const SB_BUCKET = 'docs-files';
+// Newer Supabase 'publishable' keys go in the apikey header only; classic 'anon' keys (eyJ...) are also sent as the bearer token
+const sbHeaders = (extra: Record<string, string> = {}): Record<string, string> => ({
+  apikey: SB_KEY,
+  ...(SB_KEY.startsWith('eyJ') ? { Authorization: `Bearer ${SB_KEY}` } : {}),
+  ...extra,
+});
+
+async function remoteLoad(key: string): Promise<{ found: boolean; value?: any }> {
+  const res = await fetch(`${SB_URL}/rest/v1/docs_state?key=eq.${encodeURIComponent(key)}&select=value`, { headers: sbHeaders(), cache: 'no-store' });
+  if (!res.ok) throw new Error(`Load failed (${res.status})`);
+  const rows = await res.json();
+  return rows.length ? { found: true, value: rows[0].value } : { found: false };
+}
+async function remoteSave(key: string, value: any) {
+  const res = await fetch(`${SB_URL}/rest/v1/docs_state?on_conflict=key`, {
+    method: 'POST',
+    headers: sbHeaders({ 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' }),
+    body: JSON.stringify({ key, value, updated_at: new Date().toISOString() }),
+  });
+  if (!res.ok) throw new Error(`Save failed (${res.status})`);
+}
+async function remoteUploadFile(id: string, file: Blob, fileName: string): Promise<{ path: string; url: string } | null> {
+  const ext = fileName.includes('.') ? fileName.slice(fileName.lastIndexOf('.')).toLowerCase().replace(/[^a-z0-9.]/g, '') : '';
+  const path = `${id}${ext}`;
+  try {
+    const res = await fetch(`${SB_URL}/storage/v1/object/${SB_BUCKET}/${path}`, {
+      method: 'POST',
+      headers: sbHeaders({ 'Content-Type': (file as File).type || 'application/octet-stream', 'x-upsert': 'true' }),
+      body: file,
+    });
+    if (!res.ok) return null;
+    return { path, url: `${SB_URL}/storage/v1/object/public/${SB_BUCKET}/${path}` };
+  } catch {
+    return null;
+  }
+}
+async function remoteDeleteFile(path: string) {
+  try {
+    await fetch(`${SB_URL}/storage/v1/object/${SB_BUCKET}/${path}`, { method: 'DELETE', headers: sbHeaders() });
+  } catch {
+    /* ignore */
+  }
+}
+
+// Downloads a file under its (possibly renamed) name, also for files hosted on another domain
+async function downloadDocFile(f: { name: string; url: string }) {
+  try {
+    const res = await fetch(f.url);
+    const blob = await res.blob();
+    const href = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = href;
+    a.download = f.name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(href), 1500);
+  } catch {
+    window.open(f.url, '_blank');
+  }
+}
+
+// Files that only exist in this browser get a fresh object URL after the page loads
 async function hydrateFiles(node: any): Promise<void> {
   if (Array.isArray(node)) {
     for (const n of node) await hydrateFiles(n);
@@ -293,6 +361,7 @@ async function hydrateFiles(node: any): Promise<void> {
   if (node && typeof node === 'object') {
     if (Array.isArray(node.files)) {
       for (const f of node.files) {
+        if (f.url) continue; // already hosted online
         const blob = await loadFileBlob(f.id);
         f.url = blob ? URL.createObjectURL(blob) : '';
       }
@@ -303,23 +372,79 @@ async function hydrateFiles(node: any): Promise<void> {
   }
 }
 
-// Same as useState, but saved in the browser (localStorage) and restored on the next visit
+// Moves files uploaded before shared storage was set up (still in this browser) online
+async function migrateFilesOnline(node: any): Promise<void> {
+  if (Array.isArray(node)) {
+    for (const n of node) await migrateFilesOnline(n);
+    return;
+  }
+  if (node && typeof node === 'object') {
+    if (Array.isArray(node.files)) {
+      for (const f of node.files) {
+        if (f.path) continue;
+        const blob = await loadFileBlob(f.id);
+        if (!blob) continue;
+        const up = await remoteUploadFile(f.id, blob, f.name);
+        if (up) {
+          f.path = up.path;
+          f.url = up.url;
+        }
+      }
+    }
+    for (const k of Object.keys(node)) {
+      if (k !== 'files') await migrateFilesOnline(node[k]);
+    }
+  }
+}
+
+const serializeDocs = (v: unknown) =>
+  JSON.stringify(v, (k, val) => ((k === 'url' || k === 'dataUrl') && typeof val === 'string' && val.startsWith('blob:') ? undefined : val));
+
+// Same as useState, but saved (online when Supabase is set up, otherwise in this browser) and restored on the next visit
 function usePersistentDocs<T>(key: string, defaults: T): [T, React.Dispatch<React.SetStateAction<T>>] {
   const [value, setValue] = useState<T>(defaults);
   const [loaded, setLoaded] = useState(false);
+  const [remoteReady, setRemoteReady] = useState(false);
+  const lastRemote = React.useRef<string | null>(null);
+  const dirty = React.useRef(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      let local: any = null;
       try {
         const raw = localStorage.getItem(key);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          await hydrateFiles(parsed);
-          if (!cancelled) setValue(parsed);
+        if (raw) local = JSON.parse(raw);
+      } catch {
+        /* ignore */
+      }
+      if (REMOTE_ENABLED) {
+        try {
+          const r = await remoteLoad(key);
+          if (r.found) {
+            await hydrateFiles(r.value);
+            lastRemote.current = serializeDocs(r.value);
+            if (!cancelled) setValue(r.value);
+          } else if (local) {
+            await migrateFilesOnline(local);
+            await hydrateFiles(local);
+            if (!cancelled) setValue(local);
+          }
+          if (!cancelled) setRemoteReady(true);
+        } catch (err) {
+          console.error('Shared storage unavailable, using this browser only:', err);
+          if (local) {
+            await hydrateFiles(local);
+            if (!cancelled) setValue(local);
+          }
         }
-      } catch (err) {
-        console.error('Could not restore saved documents:', err);
+      } else if (local) {
+        try {
+          await hydrateFiles(local);
+          if (!cancelled) setValue(local);
+        } catch (err) {
+          console.error('Could not restore saved documents:', err);
+        }
       }
       if (!cancelled) setLoaded(true);
     })();
@@ -330,12 +455,46 @@ function usePersistentDocs<T>(key: string, defaults: T): [T, React.Dispatch<Reac
 
   useEffect(() => {
     if (!loaded) return;
+    const str = serializeDocs(value);
     try {
-      localStorage.setItem(key, JSON.stringify(value, (k, v) => (k === 'url' ? undefined : v)));
-    } catch (err) {
-      console.error('Could not save documents:', err);
+      localStorage.setItem(key, str);
+    } catch {
+      /* ignore */
     }
-  }, [key, value, loaded]);
+    if (!remoteReady || str === lastRemote.current) return;
+    dirty.current = true;
+    const timer = setTimeout(async () => {
+      try {
+        await remoteSave(key, JSON.parse(str));
+        lastRemote.current = str;
+      } catch (err) {
+        console.error('Could not save to shared storage:', err);
+      }
+      dirty.current = false;
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [key, value, loaded, remoteReady]);
+
+  // Pick up changes made on another device when this tab comes back into view
+  useEffect(() => {
+    if (!remoteReady) return;
+    const refresh = async () => {
+      if (document.visibilityState !== 'visible' || dirty.current) return;
+      try {
+        const r = await remoteLoad(key);
+        if (!r.found || dirty.current) return;
+        const str = serializeDocs(r.value);
+        if (str === lastRemote.current) return;
+        await hydrateFiles(r.value);
+        lastRemote.current = str;
+        setValue(r.value);
+      } catch {
+        /* ignore */
+      }
+    };
+    document.addEventListener('visibilitychange', refresh);
+    return () => document.removeEventListener('visibilitychange', refresh);
+  }, [key, remoteReady]);
 
   return [value, setValue];
 }
@@ -351,7 +510,8 @@ function collectFiles(node: DocNode): DocFile[] {
 }
 function disposeFiles(files: DocFile[]) {
   files.forEach((f) => {
-    if (f.url) URL.revokeObjectURL(f.url);
+    if (f.url && f.url.startsWith('blob:')) URL.revokeObjectURL(f.url);
+    if (f.path) remoteDeleteFile(f.path);
     deleteFileBlob(f.id);
   });
 }
@@ -369,6 +529,7 @@ function DocNodeCard({
   const [draftTitle, setDraftTitle] = useState(node.title);
   const [renamingFileId, setRenamingFileId] = useState<string | null>(null);
   const [draftFileName, setDraftFileName] = useState('');
+  const [uploading, setUploading] = useState(false);
 
   const update = (fn: (n: DocNode) => DocNode) => setNodes((prev) => mapTree(prev, node.id, fn));
 
@@ -391,8 +552,11 @@ function DocNodeCard({
 
   const addSubsection = () => update((n) => ({ ...n, children: [...n.children, makeNode('New Subsection', undefined, true)] }));
 
-  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const picked = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (!picked.length) return;
+    setUploading(true);
     const added: DocFile[] = [];
     for (const file of picked) {
       if (file.size > 15 * 1024 * 1024) {
@@ -400,11 +564,20 @@ function DocNodeCard({
         continue;
       }
       const id = newDocId('file');
-      saveFileBlob(id, file);
-      added.push({ id, name: file.name, size: file.size, url: URL.createObjectURL(file) });
+      if (REMOTE_ENABLED) {
+        const up = await remoteUploadFile(id, file, file.name);
+        if (!up) {
+          alert(`Could not upload "${file.name}". Check your internet connection and try again.`);
+          continue;
+        }
+        added.push({ id, name: file.name, size: file.size, url: up.url, path: up.path });
+      } else {
+        saveFileBlob(id, file);
+        added.push({ id, name: file.name, size: file.size, url: URL.createObjectURL(file) });
+      }
     }
     if (added.length) update((n) => ({ ...n, files: [...n.files, ...added] }));
-    e.target.value = '';
+    setUploading(false);
   };
 
   const removeFile = (f: DocFile) => {
@@ -481,7 +654,7 @@ function DocNodeCard({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Documents ({node.files.length})</h4>
           <label className="inline-flex items-center gap-1.5 text-white text-xs font-bold px-3 py-2 rounded-xl cursor-pointer shadow-sm" style={{ backgroundColor: '#45499F' }}>
-            <Upload size={14} /> Add Document / PDF
+            <Upload size={14} /> {uploading ? 'Uploading...' : 'Add Document / PDF'}
             <input
               type="file"
               multiple
@@ -538,9 +711,9 @@ function DocNodeCard({
                               View
                             </a>
                           )}
-                          <a href={f.url} download={f.name} className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 hover:text-[#45499F]">
+                          <button onClick={() => downloadDocFile(f)} className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 hover:text-[#45499F] cursor-pointer">
                             <Download size={14} /> Download
-                          </a>
+                          </button>
                         </>
                       ) : (
                         <span className="text-[11px] text-slate-400">File unavailable</span>
@@ -777,7 +950,7 @@ export default function OnProbationSystem() {
   const [editTimeline, setEditTimeline] = useState([]);
   const [editCustomSections, setEditCustomSections] = useState([]);
   // Editable Team Meetings State
-  const [teamMeetings, setTeamMeetings] = useState([
+  const [teamMeetings, setTeamMeetings] = usePersistentDocs('app:teamMeetings', [
     {
       id: 1,
       category: 'Dean and Doc Team Meeting',
@@ -834,6 +1007,16 @@ export default function OnProbationSystem() {
   ]);
   const [customDocPages, setCustomDocPages] = usePersistentDocs<CustomDocPage[]>('docs:customPages', []);
   const [addingDocPage, setAddingDocPage] = useState(false);
+  const [storageStatus, setStorageStatus] = useState('Checking online storage...');
+  useEffect(() => {
+    if (!REMOTE_ENABLED) {
+      setStorageStatus('Online storage: NOT connected (keys missing)');
+      return;
+    }
+    remoteLoad('connection-test')
+      .then(() => setStorageStatus('Online storage: Connected'))
+      .catch((err) => setStorageStatus(`Online storage: ERROR - ${err?.message || 'cannot reach Supabase'}`));
+  }, []);
   const [newDocPageName, setNewDocPageName] = useState('');
   const todayDateStr = (() => {
     const now = new Date();
@@ -856,7 +1039,7 @@ export default function OnProbationSystem() {
       body.style.backgroundColor = prevBodyBg;
     };
   }, [currentView]);
-  const [facultyAdvisors, setFacultyAdvisors] = useState([
+  const [facultyAdvisors, setFacultyAdvisors] = usePersistentDocs('app:facultyAdvisors', [
     {
       name: 'Prof. Haidan Mostafa',
       count: 5,
@@ -1421,11 +1604,12 @@ export default function OnProbationSystem() {
     setEditableStrengths([...editableStrengths, 'New strength point']);
   };
   const handleDownloadDocument = (doc) => {
-    const element = document.createElement("a");
     if (doc.dataUrl) {
-      element.href = doc.dataUrl;
-      element.download = doc.name;
-    } else {
+      downloadDocFile({ name: doc.name, url: doc.dataUrl });
+      return;
+    }
+    const element = document.createElement("a");
+    {
       const isWord = doc.type === 'docx' || doc.name.endsWith('.docx') || doc.name.endsWith('.doc');
       const mimeType = isWord ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/pdf';
       const file = new Blob([`MSA University - Faculty of Biotechnology\nOfficial Document Dossier\nDocument Name: ${doc.name}\nType: ${isWord ? 'Word Document' : 'PDF Document'}\nDate: ${todayDateStr}`], { type: mimeType });
@@ -1525,18 +1709,31 @@ export default function OnProbationSystem() {
       }))
     );
   };
-  const handleUploadDocumentSubmit = (e) => {
+  const handleUploadDocumentSubmit = async (e) => {
     e.preventDefault();
     if (!attachedFile) return;
     const fileName = attachedFile.name;
     const isWord = fileName.endsWith('.docx') || fileName.endsWith('.doc');
     const fileType = isWord ? 'docx' : 'pdf';
-    const dataUrl = URL.createObjectURL(attachedFile);
+    let dataUrl = '';
+    let remotePath = '';
+    if (REMOTE_ENABLED) {
+      const up = await remoteUploadFile(newDocId('file'), attachedFile, fileName);
+      if (!up) {
+        alert(`Could not upload "${fileName}". Check your internet connection and try again.`);
+        return;
+      }
+      dataUrl = up.url;
+      remotePath = up.path;
+    } else {
+      dataUrl = URL.createObjectURL(attachedFile);
+    }
     const resolvedSectionType = simulatedRole === 'Academic Advisor' ? 'advisor' : 'student';
     const newDocObj = {
       name: fileName,
       type: fileType,
       dataUrl: dataUrl,
+      ...(remotePath ? { path: remotePath } : {}),
       sectionType: resolvedSectionType
     };
     const loggedUser = simulatedRole === 'Student View' ? selectedStudentObj.name : selectedStudentObj.advisor;
@@ -1573,6 +1770,7 @@ export default function OnProbationSystem() {
       alert("Restriction: Advisors cannot delete student-uploaded documents.");
       return;
     }
+    if (targetDoc.path) remoteDeleteFile(targetDoc.path);
     const updatedDocs = editDocuments.filter((_, i) => i !== idx);
     const loggedUser = simulatedRole === 'Student View' ? selectedStudentObj.name : selectedStudentObj.advisor;
     const newTimelineItem = {
@@ -2482,6 +2680,17 @@ export default function OnProbationSystem() {
                   <div className="space-y-2">
                     <span className="bg-white/20 text-indigo-100 font-bold text-[10px] px-3 py-1 rounded-full uppercase tracking-widest border border-white/20">
                       Documentation Team Portal (Master Audit)
+                    </span>
+                    <span
+                      className={`ml-2 font-bold text-[10px] px-3 py-1 rounded-full border ${
+                        storageStatus.endsWith('Connected')
+                          ? 'bg-emerald-400/20 text-emerald-100 border-emerald-300/30'
+                          : storageStatus.startsWith('Checking')
+                          ? 'bg-white/10 text-indigo-100 border-white/20'
+                          : 'bg-red-400/25 text-red-100 border-red-300/40'
+                      }`}
+                    >
+                      {storageStatus}
                     </span>
                     <h2 className="text-3xl font-extrabold tracking-tight">
                       Welcome back, Documentation Team
