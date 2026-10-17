@@ -37,7 +37,7 @@ import {
 } from 'lucide-react';
 // Advisor phone numbers (write each number between the quotes, e.g. '01012345678').
 // An advisor with an empty number shows no contact buttons in the welcome banner.
-const ADVISOR_PHONES: Record<string, string> = {
+const DEFAULT_ADVISOR_PHONES: Record<string, string> = {
   'Prof. Haidan Mostafa': '01151052865',
   'Prof. Yasmin Abdellatif': '01063144993',
   'Dr. Yara Ahmed': '01126034629',
@@ -66,7 +66,7 @@ const ADVISOR_PHONES: Record<string, string> = {
 
 // Advisor email addresses (write each email between the quotes, e.g. 'name@msa.edu.eg').
 // An advisor with an empty email shows no email button in the welcome banner.
-const ADVISOR_EMAILS: Record<string, string> = {
+const DEFAULT_ADVISOR_EMAILS: Record<string, string> = {
   'Prof. Haidan Mostafa': 'hamsalem@msa.edu.eg',
   'Prof. Yasmin Abdellatif': 'ylatif@msa.edu.eg',
   'Dr. Yara Ahmed': 'ymuhammed@msa.edu.eg',
@@ -134,7 +134,7 @@ function TeamMemberIcon({ name, photo }: { name: string; photo: string }) {
 }
 
 // Sidebar card (Student / Parent access): shows the student's academic advisor with photo and contact options
-function AdvisorSidebarCard({ advisorName }: { advisorName: string }) {
+function AdvisorSidebarCard({ advisorName, phone, email }: { advisorName: string; phone?: string; email?: string }) {
   const extensions = ['jpeg', 'jpg', 'png', 'webp'];
   const slug = advisorName
     .replace(/^(Prof\.|Dr\.)\s*/i, '')
@@ -150,8 +150,6 @@ function AdvisorSidebarCard({ advisorName }: { advisorName: string }) {
     .slice(0, 2)
     .join('')
     .toUpperCase();
-  const phone = ADVISOR_PHONES[advisorName];
-  const email = ADVISOR_EMAILS[advisorName];
 
   // reset the image fallback when the advisor changes
   useEffect(() => {
@@ -297,19 +295,40 @@ const sbHeaders = (extra: Record<string, string> = {}): Record<string, string> =
   ...extra,
 });
 
-async function remoteLoad(key: string): Promise<{ found: boolean; value?: any }> {
-  const res = await fetch(`${SB_URL}/rest/v1/docs_state?key=eq.${encodeURIComponent(key)}&select=value`, { headers: sbHeaders(), cache: 'no-store' });
+async function remoteLoad(key: string): Promise<{ found: boolean; value?: any; updatedAt?: string }> {
+  const res = await fetch(`${SB_URL}/rest/v1/docs_state?key=eq.${encodeURIComponent(key)}&select=value,updated_at`, { headers: sbHeaders(), cache: 'no-store' });
   if (!res.ok) throw new Error(`Load failed (${res.status})`);
   const rows = await res.json();
-  return rows.length ? { found: true, value: rows[0].value } : { found: false };
+  return rows.length ? { found: true, value: rows[0].value, updatedAt: rows[0].updated_at } : { found: false };
 }
-async function remoteSave(key: string, value: any) {
-  const res = await fetch(`${SB_URL}/rest/v1/docs_state?on_conflict=key`, {
-    method: 'POST',
-    headers: sbHeaders({ 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' }),
-    body: JSON.stringify({ key, value, updated_at: new Date().toISOString() }),
+// Cheap check used for live syncing: only the "last changed" time, not the data itself
+async function remoteStamp(key: string): Promise<string | null> {
+  const res = await fetch(`${SB_URL}/rest/v1/docs_state?key=eq.${encodeURIComponent(key)}&select=updated_at`, { headers: sbHeaders(), cache: 'no-store' });
+  if (!res.ok) throw new Error(`Check failed (${res.status})`);
+  const rows = await res.json();
+  return rows.length ? rows[0].updated_at : null;
+}
+// Writes only if nobody else saved in the meantime; otherwise returns 'conflict' so the caller can merge and retry
+async function remoteSaveConditional(key: string, value: any, expectedStamp: string | null): Promise<'ok' | 'conflict'> {
+  const now = new Date().toISOString();
+  if (expectedStamp === null) {
+    const res = await fetch(`${SB_URL}/rest/v1/docs_state`, {
+      method: 'POST',
+      headers: sbHeaders({ 'Content-Type': 'application/json', Prefer: 'return=minimal' }),
+      body: JSON.stringify({ key, value, updated_at: now }),
+    });
+    if (res.status === 409) return 'conflict';
+    if (!res.ok) throw new Error(`Save failed (${res.status})`);
+    return 'ok';
+  }
+  const res = await fetch(`${SB_URL}/rest/v1/docs_state?key=eq.${encodeURIComponent(key)}&updated_at=eq.${encodeURIComponent(expectedStamp)}`, {
+    method: 'PATCH',
+    headers: sbHeaders({ 'Content-Type': 'application/json', Prefer: 'return=representation' }),
+    body: JSON.stringify({ value, updated_at: now }),
   });
   if (!res.ok) throw new Error(`Save failed (${res.status})`);
+  const rows = await res.json();
+  return rows.length ? 'ok' : 'conflict';
 }
 async function remoteUploadFile(id: string, file: Blob, fileName: string): Promise<{ path: string; url: string } | null> {
   const ext = fileName.includes('.') ? fileName.slice(fileName.lastIndexOf('.')).toLowerCase().replace(/[^a-z0-9.]/g, '') : '';
@@ -400,13 +419,75 @@ async function migrateFilesOnline(node: any): Promise<void> {
 const serializeDocs = (v: unknown) =>
   JSON.stringify(v, (k, val) => ((k === 'url' || k === 'dataUrl') && typeof val === 'string' && val.startsWith('blob:') ? undefined : val));
 
-// Same as useState, but saved (online when Supabase is set up, otherwise in this browser) and restored on the next visit
+// ---------- Merging changes made on different devices at the same time ----------
+const isPlainObject = (v: any) => v !== null && typeof v === 'object' && !Array.isArray(v);
+function canon(v: any): string {
+  if (Array.isArray(v)) return `[${v.map(canon).join(',')}]`;
+  if (isPlainObject(v)) return `{${Object.keys(v).sort().filter((k) => v[k] !== undefined).map((k) => `${JSON.stringify(k)}:${canon(v[k])}`).join(',')}}`;
+  return JSON.stringify(v) ?? 'null';
+}
+const itemKey = (it: any) => (isPlainObject(it) && (it.id ?? it.name) !== undefined ? String(it.id ?? it.name) : null);
+const hasUniqueKeys = (arr: any[]) => arr.every((it) => itemKey(it) !== null) && new Set(arr.map(itemKey)).size === arr.length;
+
+// base = what both sides last agreed on, local = this device now, remote = the shared copy now
+function mergeDocs(base: any, local: any, remote: any): any {
+  if (canon(local) === canon(base)) return remote;
+  if (canon(remote) === canon(base)) return local;
+  if (canon(local) === canon(remote)) return local;
+  if (isPlainObject(local) && isPlainObject(remote)) {
+    const b = isPlainObject(base) ? base : {};
+    const out: any = {};
+    new Set([...Object.keys(remote), ...Object.keys(local), ...Object.keys(b)]).forEach((k) => {
+      const inL = k in local, inR = k in remote, inB = k in b;
+      if (inL && inR) out[k] = mergeDocs(b[k], local[k], remote[k]);
+      else if (inL) {
+        if (!inB || canon(local[k]) !== canon(b[k])) out[k] = local[k];
+      } else if (inR) {
+        if (!inB || canon(remote[k]) !== canon(b[k])) out[k] = remote[k];
+      }
+    });
+    return out;
+  }
+  if (Array.isArray(local) && Array.isArray(remote)) {
+    const b: any[] = Array.isArray(base) ? base : [];
+    if ([...local, ...remote, ...b].every(isPlainObject)) {
+      if ([local, remote, b].every(hasUniqueKeys)) {
+        const lMap = new Map(local.map((it: any) => [itemKey(it), it]));
+        const rMap = new Map(remote.map((it: any) => [itemKey(it), it]));
+        const bMap = new Map(b.map((it: any) => [itemKey(it), it]));
+        const out: any[] = [];
+        remote.forEach((r: any) => {
+          const k = itemKey(r);
+          if (lMap.has(k)) out.push(mergeDocs(bMap.get(k), lMap.get(k), r));
+          else if (!bMap.has(k) || canon(r) !== canon(bMap.get(k))) out.push(r);
+        });
+        local.forEach((l: any) => {
+          const k = itemKey(l);
+          if (rMap.has(k)) return;
+          if (!bMap.has(k) || canon(l) !== canon(bMap.get(k))) out.push(l);
+        });
+        return out;
+      }
+      const bSet = new Set(b.map(canon)), lSet = new Set(local.map(canon)), rSet = new Set(remote.map(canon));
+      const addedRemote = remote.filter((x: any) => !bSet.has(canon(x)) && !lSet.has(canon(x)));
+      const keptLocal = local.filter((x: any) => (bSet.has(canon(x)) ? rSet.has(canon(x)) : true));
+      return [...addedRemote, ...keptLocal];
+    }
+  }
+  return local;
+}
+
+// Same as useState, but saved online (when Supabase is set up) so every device sees the same data.
+// Changes from several devices are merged instead of overwriting each other, and other devices' changes show up within seconds.
 function usePersistentDocs<T>(key: string, defaults: T): [T, React.Dispatch<React.SetStateAction<T>>] {
   const [value, setValue] = useState<T>(defaults);
   const [loaded, setLoaded] = useState(false);
   const [remoteReady, setRemoteReady] = useState(false);
-  const lastRemote = React.useRef<string | null>(null);
+  const base = React.useRef<any>(null); // last version both sides agreed on
+  const seenStamp = React.useRef<string | null>(null);
+  const valueRef = React.useRef<T>(defaults);
   const dirty = React.useRef(false);
+  valueRef.current = value;
 
   useEffect(() => {
     let cancelled = false;
@@ -422,8 +503,9 @@ function usePersistentDocs<T>(key: string, defaults: T): [T, React.Dispatch<Reac
         try {
           const r = await remoteLoad(key);
           if (r.found) {
+            base.current = JSON.parse(JSON.stringify(r.value));
+            seenStamp.current = r.updatedAt || null;
             await hydrateFiles(r.value);
-            lastRemote.current = serializeDocs(r.value);
             if (!cancelled) setValue(r.value);
           } else if (local) {
             await migrateFilesOnline(local);
@@ -453,6 +535,7 @@ function usePersistentDocs<T>(key: string, defaults: T): [T, React.Dispatch<Reac
     };
   }, [key]);
 
+  // Save: merge with whatever other devices saved meanwhile, then write
   useEffect(() => {
     if (!loaded) return;
     const str = serializeDocs(value);
@@ -461,12 +544,39 @@ function usePersistentDocs<T>(key: string, defaults: T): [T, React.Dispatch<Reac
     } catch {
       /* ignore */
     }
-    if (!remoteReady || str === lastRemote.current) return;
+    if (!remoteReady) return;
+    if (base.current !== null && canon(JSON.parse(str)) === canon(base.current)) {
+      dirty.current = false;
+      return;
+    }
     dirty.current = true;
     const timer = setTimeout(async () => {
+      const localJson = JSON.parse(str);
       try {
-        await remoteSave(key, JSON.parse(str));
-        lastRemote.current = str;
+        let merged: any = null;
+        for (let attempt = 0; attempt < 5 && merged === null; attempt++) {
+          const r = await remoteLoad(key);
+          const target = r.found ? mergeDocs(base.current, localJson, r.value) : localJson;
+          if (r.found && canon(target) === canon(r.value)) {
+            merged = target;
+            break;
+          }
+          const res = await remoteSaveConditional(key, target, r.found ? r.updatedAt || null : null);
+          if (res === 'ok') merged = target;
+        }
+        if (merged !== null) {
+          base.current = JSON.parse(JSON.stringify(merged));
+          try {
+            seenStamp.current = await remoteStamp(key);
+          } catch {
+            /* ignore */
+          }
+          const unchangedSince = canon(JSON.parse(serializeDocs(valueRef.current))) === canon(localJson);
+          if (unchangedSince && canon(merged) !== canon(localJson)) {
+            await hydrateFiles(merged);
+            setValue(merged);
+          }
+        }
       } catch (err) {
         console.error('Could not save to shared storage:', err);
       }
@@ -475,25 +585,33 @@ function usePersistentDocs<T>(key: string, defaults: T): [T, React.Dispatch<Reac
     return () => clearTimeout(timer);
   }, [key, value, loaded, remoteReady]);
 
-  // Pick up changes made on another device when this tab comes back into view
+  // Live sync: look for changes from other devices every few seconds and when the tab comes back into view
   useEffect(() => {
     if (!remoteReady) return;
+    let stopped = false;
     const refresh = async () => {
-      if (document.visibilityState !== 'visible' || dirty.current) return;
+      if (stopped || document.visibilityState !== 'visible' || dirty.current) return;
       try {
+        const stamp = await remoteStamp(key);
+        if (!stamp || stamp === seenStamp.current || dirty.current || stopped) return;
         const r = await remoteLoad(key);
-        if (!r.found || dirty.current) return;
-        const str = serializeDocs(r.value);
-        if (str === lastRemote.current) return;
+        if (!r.found || dirty.current || stopped) return;
+        seenStamp.current = r.updatedAt || stamp;
+        if (base.current !== null && canon(r.value) === canon(base.current)) return;
+        base.current = JSON.parse(JSON.stringify(r.value));
         await hydrateFiles(r.value);
-        lastRemote.current = str;
         setValue(r.value);
       } catch {
         /* ignore */
       }
     };
+    const timerId = setInterval(refresh, 8000);
     document.addEventListener('visibilitychange', refresh);
-    return () => document.removeEventListener('visibilitychange', refresh);
+    return () => {
+      stopped = true;
+      clearInterval(timerId);
+      document.removeEventListener('visibilitychange', refresh);
+    };
   }, [key, remoteReady]);
 
   return [value, setValue];
@@ -902,7 +1020,7 @@ export default function OnProbationSystem() {
   const [parentIdInput, setParentIdInput] = useState('');
   const [docPasswordInput, setDocPasswordInput] = useState('');
   const [loginError, setLoginError] = useState('');
-  const advisorPasswords = {
+  const defaultAdvisorPasswords = {
     'Prof. Haidan Mostafa': 'password123',
     'Prof. Yasmin Abdellatif': 'password123',
     'Dr. Yara Ahmed': 'password123',
@@ -928,6 +1046,22 @@ export default function OnProbationSystem() {
     'Hagar Magdy': 'password123',
     'Faten Ehab': 'password123'
   };
+  // Logins, contact details and the Documentation Team password are shared online too, so a change made on one device applies everywhere
+  const [portalAccess, setPortalAccess] = usePersistentDocs('app:portalAccess', {
+    advisorPasswords: defaultAdvisorPasswords as Record<string, string>,
+    docTeamPassword: 'Documentation123',
+  });
+  const advisorPasswords = portalAccess.advisorPasswords;
+  const [advisorContacts, setAdvisorContacts] = usePersistentDocs('app:advisorContacts', {
+    phones: DEFAULT_ADVISOR_PHONES,
+    emails: DEFAULT_ADVISOR_EMAILS,
+  });
+  const ADVISOR_PHONES: Record<string, string> = advisorContacts.phones;
+  const ADVISOR_EMAILS: Record<string, string> = advisorContacts.emails;
+  const [editingContact, setEditingContact] = useState<string | null>(null);
+  const [draftPhone, setDraftPhone] = useState('');
+  const [draftEmail, setDraftEmail] = useState('');
+  const [draftPassword, setDraftPassword] = useState('');
   const [activeNav, setActiveNav] = useState('Dashboard');
   const [selectedStudentId, setSelectedStudentId] = useState(null);
   const [activeStudentTab, setActiveStudentTab] = useState('Action Plans');
@@ -2065,7 +2199,7 @@ export default function OnProbationSystem() {
   };
   const handleDocTeamLogin = (e) => {
     e.preventDefault();
-    if (docPasswordInput !== 'Documentation123') {
+    if (docPasswordInput !== portalAccess.docTeamPassword) {
       setLoginError('Incorrect Documentation Team password.');
       return;
     }
@@ -2522,7 +2656,11 @@ export default function OnProbationSystem() {
                   <Users size={18} />
                   <span>Student Portfolio</span>
                 </button>
-                <AdvisorSidebarCard advisorName={selectedStudentObj?.advisor || selectedAdvisor} />
+                <AdvisorSidebarCard
+                  advisorName={selectedStudentObj?.advisor || selectedAdvisor}
+                  phone={ADVISOR_PHONES[selectedStudentObj?.advisor || selectedAdvisor]}
+                  email={ADVISOR_EMAILS[selectedStudentObj?.advisor || selectedAdvisor]}
+                />
               </>
             ) : simulatedRole === 'Documentation Team' ? (
               <>
@@ -4004,11 +4142,25 @@ export default function OnProbationSystem() {
                   <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
                     <div>
                       <h2 className="text-xl font-extrabold text-slate-900">Advisors Information</h2>
-                      <p className="text-xs text-slate-500 mt-0.5">Contact details and student load for every academic advisor.</p>
+                      <p className="text-xs text-slate-500 mt-0.5">Click the pencil to change an advisor's phone, email or login password. Changes appear on every device.</p>
                     </div>
-                    <span className="bg-indigo-50 text-[#45499F] text-xs font-bold px-3 py-1.5 rounded-full border border-indigo-100">
-                      {facultyAdvisors.length} Advisors
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          const next = window.prompt('Enter the new Documentation Team password:');
+                          if (next && next.trim()) {
+                            setPortalAccess((prev) => ({ ...prev, docTeamPassword: next.trim() }));
+                            alert('Documentation Team password updated.');
+                          }
+                        }}
+                        className="inline-flex items-center gap-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-xl cursor-pointer"
+                      >
+                        <Edit3 size={14} /> Change Doc Team Password
+                      </button>
+                      <span className="bg-indigo-50 text-[#45499F] text-xs font-bold px-3 py-1.5 rounded-full border border-indigo-100">
+                        {facultyAdvisors.length} Advisors
+                      </span>
+                    </div>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">
@@ -4019,26 +4171,31 @@ export default function OnProbationSystem() {
                           <th className="p-3">Phone Number</th>
                           <th className="p-3">WhatsApp</th>
                           <th className="p-3">Email Address</th>
+                          <th className="p-3">Password</th>
                           <th className="p-3 text-center">Students Assigned</th>
+                          <th className="p-3 text-center">Edit</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {facultyAdvisors.map((adv, idx) => {
                           const phone = ADVISOR_PHONES[adv.name];
                           const email = ADVISOR_EMAILS[adv.name];
+                          const isEditing = editingContact === adv.name;
                           return (
                             <tr key={adv.name} className="hover:bg-slate-50 transition-colors">
                               <td className="p-3 text-slate-400 font-semibold">{idx + 1}</td>
                               <td className="p-3 font-bold text-slate-900 whitespace-nowrap">{adv.name}</td>
                               <td className="p-3 font-semibold text-slate-600 whitespace-nowrap">
-                                {phone ? (
+                                {isEditing ? (
+                                  <input value={draftPhone} onChange={(e) => setDraftPhone(e.target.value)} placeholder="01XXXXXXXXX" className="w-36 px-2 py-1 border border-slate-300 rounded-lg text-xs bg-white" />
+                                ) : phone ? (
                                   <a href={`tel:${phone}`} className="hover:text-[#45499F] hover:underline">{phone}</a>
                                 ) : (
                                   <span className="text-slate-400">N/A</span>
                                 )}
                               </td>
                               <td className="p-3">
-                                {phone ? (
+                                {phone && !isEditing ? (
                                   <a
                                     href={`https://wa.me/${toWhatsAppNumber(phone)}`}
                                     target="_blank"
@@ -4049,20 +4206,70 @@ export default function OnProbationSystem() {
                                     Chat
                                   </a>
                                 ) : (
+                                  <span className="text-slate-400">{isEditing ? '' : 'N/A'}</span>
+                                )}
+                              </td>
+                              <td className="p-3 font-semibold text-slate-600">
+                                {isEditing ? (
+                                  <input value={draftEmail} onChange={(e) => setDraftEmail(e.target.value)} placeholder="name@msa.edu.eg" className="w-52 px-2 py-1 border border-slate-300 rounded-lg text-xs bg-white" />
+                                ) : email ? (
+                                  <a href={`mailto:${email}`} className="hover:text-[#45499F] hover:underline">{email}</a>
+                                ) : (
                                   <span className="text-slate-400">N/A</span>
                                 )}
                               </td>
                               <td className="p-3 font-semibold text-slate-600">
-                                {email ? (
-                                  <a href={`mailto:${email}`} className="hover:text-[#45499F] hover:underline">{email}</a>
+                                {isEditing ? (
+                                  <input value={draftPassword} onChange={(e) => setDraftPassword(e.target.value)} placeholder="Password" className="w-32 px-2 py-1 border border-slate-300 rounded-lg text-xs bg-white" />
                                 ) : (
-                                  <span className="text-slate-400">N/A</span>
+                                  <span className="tracking-widest text-slate-400">••••••••</span>
                                 )}
                               </td>
                               <td className="p-3 text-center">
                                 <span className="inline-block min-w-[2rem] bg-indigo-50 text-[#45499F] font-extrabold text-xs px-2.5 py-1 rounded-full border border-indigo-100">
                                   {adv.students.length}
                                 </span>
+                              </td>
+                              <td className="p-3 text-center whitespace-nowrap">
+                                {isEditing ? (
+                                  <div className="inline-flex items-center gap-2">
+                                    <button
+                                      title="Save"
+                                      onClick={() => {
+                                        setAdvisorContacts((prev) => ({
+                                          phones: { ...prev.phones, [adv.name]: draftPhone.trim() },
+                                          emails: { ...prev.emails, [adv.name]: draftEmail.trim() },
+                                        }));
+                                        if (draftPassword.trim()) {
+                                          setPortalAccess((prev) => ({
+                                            ...prev,
+                                            advisorPasswords: { ...prev.advisorPasswords, [adv.name]: draftPassword.trim() },
+                                          }));
+                                        }
+                                        setEditingContact(null);
+                                      }}
+                                      className="text-emerald-600 hover:text-emerald-700 cursor-pointer"
+                                    >
+                                      <Save size={16} />
+                                    </button>
+                                    <button title="Cancel" onClick={() => setEditingContact(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                                      <X size={16} />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    title="Edit phone, email and password"
+                                    onClick={() => {
+                                      setEditingContact(adv.name);
+                                      setDraftPhone(phone || '');
+                                      setDraftEmail(email || '');
+                                      setDraftPassword(advisorPasswords[adv.name] || 'password123');
+                                    }}
+                                    className="text-slate-400 hover:text-[#45499F] cursor-pointer"
+                                  >
+                                    <Edit3 size={15} />
+                                  </button>
+                                )}
                               </td>
                             </tr>
                           );
